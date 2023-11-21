@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import pyeasylib
-import dates
+import luna.common.dates as dates
 
 class TBReader_ExcelFormat1:
     
