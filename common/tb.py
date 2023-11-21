@@ -1,10 +1,6 @@
 import pandas as pd
 import numpy as np
-import re
-from fuzzywuzzy import fuzz, process
 import datetime
-import openpyxl
-from openpyxl.worksheet.datavalidation import DataValidation
 import pyeasylib
 import dates
 
@@ -196,5 +192,5 @@ if __name__ == "__main__":
         
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
         
-        
+        df_processed_long = self.df_processed_long
                 
