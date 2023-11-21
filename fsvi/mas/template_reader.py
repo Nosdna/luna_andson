@@ -19,6 +19,13 @@ class MASTemplateReader_Form1:
         self.fp = fp
         self.sheet_name = sheet_name
         
+        self.main()
+    
+    def main(self):
+        
+        self.read_data_from_file()
+        self.process_template()
+        
 
     def read_data_from_file(self):
         
