@@ -14,6 +14,9 @@ class TBReader_ExcelFormat1:
     
     def __init__(self, fp, sheet_name = 0, fy_end_date = None):
         '''
+        Class to read TB from Excel file.
+        
+        Will be processed to the long format.
 
         Main methods:
             - read_data_from_file
@@ -194,14 +197,4 @@ if __name__ == "__main__":
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
         
         
-        
-    
-        assert False
-        file = input("Enter the TB file path: ")
-        # file path: D:\Daciachinzq\Desktop\work\CPA FS Form 1\myer gold\Myer Gold Investment Management - 2022 TB.xlsx
-        fy = int(input("Enter the Financial Year (e.g. 2022): "))
-        tb = TBReader(file, fy)
-        # df = tb.process_icm()     # only use for ICM
-        df = tb.tbprocessing()
-        
-        
+                
