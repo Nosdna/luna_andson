@@ -7,11 +7,13 @@ class AgedReceivablesReader_Format1:
     
     REQUIRED_HEADERS = ["Name", "Currency", "Conversion Factor", "Total Due"]
     
-    def __init__(self, fp, sheet_name, variance_threshold = 1E-9):
+    def __init__(self, fp, sheet_name = 0, variance_threshold = 1E-9):
         
         self.fp = fp
         self.sheet_name = sheet_name
         self.variance_threshold = variance_threshold
+        
+        self.main()
         
     def main(self):
         
