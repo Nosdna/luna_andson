@@ -96,13 +96,31 @@ class MASTemplateReader_Form1:
     
         self.df_processed = df_processed.copy()
     
-    
+    def get_ls_codes_by_varname(self, varname):
+        
+        if not hasattr(self, 'varname_to_lscodes'):
+            
+            # only process if the varname to lscodes is not defined yet
+            
+            # Get the data, filter and set index
+            df_processed = self.df_processed.copy()
+            df_filtered = df_processed.dropna(subset=["var_name"])
+            varname_to_lscodes = df_filtered.set_index('var_name')["L/S (num)"]
+            
+            # check that no duplicated varname
+            pyeasylib.assert_no_duplicates(varname_to_lscodes.index)
+        
+            # save as attr
+            self.varname_to_lscodes = varname_to_lscodes
+                
+        # Get 
+        return self.varname_to_lscodes.at[varname]
 
 
 if __name__ == "__main__":
 
-    fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\parameters\MAS Forms mapping template - Compiled v20231027 (new).xlsx"
-    sheet_name = "Form 1 (redesigned)"
+    fp = r"D:\Desktop\owgs\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
+    sheet_name = "Form 1 - TB mapping"
     
     self = MASTemplateReader_Form1(fp, sheet_name)
     
@@ -110,3 +128,4 @@ if __name__ == "__main__":
     
     self.process_template()
     df_processed = self.df_processed
+    
