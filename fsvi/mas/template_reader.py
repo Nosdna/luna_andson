@@ -8,7 +8,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 import pyeasylib
 
-
+import luna.common.misc as misc
 
 class MASTemplateReader_Form1:
     
@@ -97,20 +97,7 @@ class MASTemplateReader_Form1:
         self.df_processed = df_processed.copy()
     
     def get_ls_codes_by_varname(self, varname):
-        
-        def convert_to_interval(l):
-            list_of_intervals = []
-            for v in l:
-                if "-" in v:
-                    l, r = v.split("-")
-                    l = float(l.strip())
-                    r = float(r.strip())
-                else:
-                    l = float(v)
-                    r = l
-                interval = pd.Interval(l, r, closed='both')
-                list_of_intervals.append(interval)
-            return list_of_intervals
+
         
         if not hasattr(self, 'varname_to_lscodes'):
             
@@ -125,7 +112,7 @@ class MASTemplateReader_Form1:
             pyeasylib.assert_no_duplicates(varname_to_lscodes.index)
         
             # convert to intervals
-            varname_to_lscodes = varname_to_lscodes.apply(convert_to_interval)
+            varname_to_lscodes = varname_to_lscodes.apply(misc.convert_list_of_string_to_interval)
         
             # save as attr
             self.varname_to_lscodes = varname_to_lscodes

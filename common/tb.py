@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 import pyeasylib
 import luna.common.dates as dates
+import luna.common.misc as misc
 
 class TBReader_ExcelFormat1:
     
@@ -89,6 +90,10 @@ class TBReader_ExcelFormat1:
             for c in dates_converted:
                 df_processed[c] = df_processed[c].astype(float)
             
+            # Convert the ls code to interval
+            df_processed["L/S (interval)"] = df_processed["L/S"].apply(
+                misc.convert_string_to_interval)
+            
             # Convert to long
             df_processed_long = self._convert_to_long_format(df_processed, dates_converted)
             
@@ -139,9 +144,12 @@ class TBReader_ExcelFormat1:
     
     def _convert_to_long_format(self, df, dates_converted):
         
+        # All other columns
+        other_columns = [c for c in df.columns if c not in dates_converted]
+        
         # Melt
         df_long = df.melt(
-            self.REQUIRED_HEADERS, 
+            other_columns, 
             dates_converted,
             var_name = "Date",
             value_name = "Value"
@@ -183,10 +191,10 @@ class TBReader_ExcelFormat1:
 if __name__ == "__main__":
     
     
-    if False:
+    if True:
         
         # Read the tb
-        fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\sample_tb_data.xlsx"
+        fp = r"D:\Desktop\owgs\CODES\luna\templates\tb.xlsx"
         sheet_name = "format1"
         fy_end_date = datetime.date(2022, 12, 31)
         
