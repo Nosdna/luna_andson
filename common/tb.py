@@ -40,8 +40,9 @@ class TBReader_ExcelFormat1:
         if not hasattr(self, 'df1'):
 
             # Read the main df
-            df0 = pd.read_excel(self.fp, sheet_name = self.sheet_name, 
-                                engine = 'openpyxl')
+            df0 = pyeasylib.excellib.read_excel_with_xl_rows_cols(
+                self.fp, sheet_name = self.sheet_name
+                )
             
             # Strip empty spaces for strings
             df_processed = df0.applymap(lambda s: s.strip() if type(s) is str else s)
@@ -196,6 +197,7 @@ if __name__ == "__main__":
         # Read the tb
         fp = r"D:\Desktop\owgs\CODES\luna\templates\tb.xlsx"
         sheet_name = "format1"
+        
         fy_end_date = datetime.date(2022, 12, 31)
         
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
