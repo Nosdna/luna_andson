@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import re
@@ -47,8 +48,7 @@ class MASTemplateReader_Form1:
         self.df1 = df1
                                     
         return self.df1
-    
-    
+
         
     def process_template(self):
         
@@ -65,13 +65,7 @@ class MASTemplateReader_Form1:
             else:
                 cols.append(c)
         df1.columns = cols
-        
-        # ffill
-        if False:
-            cols_to_ffill = df1.columns[:df1.columns.tolist().index("Amount")]
-            for c in cols_to_ffill:
-                df1[c] = df1[c].ffill()
-            
+                
         # tag if has values
         df1["Has value?"] = (df1["Amount"].notnull() | df1["Subtotal"].notnull())
                    
@@ -97,6 +91,7 @@ class MASTemplateReader_Form1:
     
         self.df_processed = df_processed.copy()
         
+        
     def get_varname_to_ls_codes(self):
 
         if not hasattr(self, 'varname_to_lscodes'):
@@ -107,6 +102,7 @@ class MASTemplateReader_Form1:
             df_processed = self.df_processed.copy()
             df_filtered = df_processed.dropna(subset=["var_name"])
             varname_to_lscodes = df_filtered.set_index('var_name')["L/S (intervals)"]
+            varname_to_index = df_filtered.reset_index().set_index('var_name')["ExcelRow"]
             
             # check that no duplicated varname
             pyeasylib.assert_no_duplicates(varname_to_lscodes.index)
@@ -116,19 +112,32 @@ class MASTemplateReader_Form1:
         
             # save as attr
             self.varname_to_lscodes = varname_to_lscodes
+            self.varname_to_index   = varname_to_index
         
         return self.varname_to_lscodes
     
     def get_ls_codes_by_varname(self, varname):
- 
-        return self.get_varname_to_ls_codes().at[varname]
+        
+        s = self.get_varname_to_ls_codes()
+        
+        if varname not in s.index:
+            
+            raise KeyError (f"Input varname={varname} not found.")
+        
+        return s.at[varname]
 
 
 if __name__ == "__main__":
 
-    fp = r"D:\Desktop\owgs\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
+    # Specify the param fp    
+    dirname = os.path.dirname
+    luna_fp = dirname(dirname(dirname(__file__)))
+    param_fp = os.path.join(luna_fp, 'parameters')
+    fp = os.path.join(param_fp, "mas_forms_tb_mapping.xlsx")
     sheet_name = "Form 1 - TB mapping"
     
+    
+    # Main
     self = MASTemplateReader_Form1(fp, sheet_name)
     
     self.read_data_from_file()
