@@ -25,6 +25,7 @@ class MASTemplateReader_Form1:
         
         self.read_data_from_file()
         self.process_template()
+        self.get_varname_to_ls_codes()
         
 
     def read_data_from_file(self):
@@ -95,10 +96,9 @@ class MASTemplateReader_Form1:
         df_processed["L/S (intervals)"] = df_processed["L/S"].apply(lambda x: str(x).replace(" ", "").split(","))
     
         self.df_processed = df_processed.copy()
-    
-    def get_ls_codes_by_varname(self, varname):
-
         
+    def get_varname_to_ls_codes(self):
+
         if not hasattr(self, 'varname_to_lscodes'):
             
             # only process if the varname to lscodes is not defined yet
@@ -116,9 +116,12 @@ class MASTemplateReader_Form1:
         
             # save as attr
             self.varname_to_lscodes = varname_to_lscodes
-                
-        # Get 
-        return self.varname_to_lscodes.at[varname]
+        
+        return self.varname_to_lscodes
+    
+    def get_ls_codes_by_varname(self, varname):
+ 
+        return self.get_varname_to_ls_codes().at[varname]
 
 
 if __name__ == "__main__":
