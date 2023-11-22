@@ -92,11 +92,25 @@ class MASTemplateReader_Form1:
         df_processed["L/S"] = df_processed["Subtotal"].fillna(df_processed["Amount"])
     
         # split
-        df_processed["L/S (num)"] = df_processed["L/S"].apply(lambda x: str(x).replace(" ", "").split(","))
+        df_processed["L/S (intervals)"] = df_processed["L/S"].apply(lambda x: str(x).replace(" ", "").split(","))
     
         self.df_processed = df_processed.copy()
     
     def get_ls_codes_by_varname(self, varname):
+        
+        def convert_to_interval(l):
+            list_of_intervals = []
+            for v in l:
+                if "-" in v:
+                    l, r = v.split("-")
+                    l = float(l.strip())
+                    r = float(r.strip())
+                else:
+                    l = float(v)
+                    r = l
+                interval = pd.Interval(l, r, closed='both')
+                list_of_intervals.append(interval)
+            return list_of_intervals
         
         if not hasattr(self, 'varname_to_lscodes'):
             
@@ -105,10 +119,13 @@ class MASTemplateReader_Form1:
             # Get the data, filter and set index
             df_processed = self.df_processed.copy()
             df_filtered = df_processed.dropna(subset=["var_name"])
-            varname_to_lscodes = df_filtered.set_index('var_name')["L/S (num)"]
+            varname_to_lscodes = df_filtered.set_index('var_name')["L/S (intervals)"]
             
             # check that no duplicated varname
             pyeasylib.assert_no_duplicates(varname_to_lscodes.index)
+        
+            # convert to intervals
+            varname_to_lscodes = varname_to_lscodes.apply(convert_to_interval)
         
             # save as attr
             self.varname_to_lscodes = varname_to_lscodes
@@ -128,4 +145,6 @@ if __name__ == "__main__":
     
     self.process_template()
     df_processed = self.df_processed
+    
+    self.get_ls_codes_by_varname("puc_rev_reserve")
     
