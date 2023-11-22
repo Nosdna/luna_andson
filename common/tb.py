@@ -123,7 +123,34 @@ class TBReader_ExcelFormat1:
             
         return self.gb_fy.get_group(fy)
         
+    
+    def filter_tb_by_fy_and_ls_codes(self, fy, interval_list):
+        '''
+        interval_list = a list of pd.Interval
+        '''
         
+        df = self.get_data_by_fy(fy)
+        
+        # Loop through all the intervals
+        temp = []
+        for interval in interval_list:
+            is_overlap = df["L/S (interval)"].apply(lambda i: i.overlaps(interval))
+            is_overlap.name = interval
+            temp.append(is_overlap)
+            
+        # Concat
+        temp_df = pd.concat(temp, axis=1, names = interval_list)
+        
+        # final is overlap
+        is_overlap = temp_df.any(axis=1)
+        
+        # get hits
+        true_match = df[is_overlap]
+        false_match = df[~is_overlap]
+        
+        return is_overlap, true_match, false_match
+    
+    
     def _process_dates(self, date_values):
         
         # Validate that date is of correct type
@@ -195,7 +222,7 @@ if __name__ == "__main__":
     if True:
         
         # Read the tb
-        fp = r"D:\Desktop\owgs\CODES\luna\templates\tb.xlsx"
+        fp = r"..\templates\tb.xlsx"
         sheet_name = "format1"
         
         fy_end_date = datetime.date(2022, 12, 31)
@@ -203,4 +230,12 @@ if __name__ == "__main__":
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
         
         df_processed_long = self.df_processed_long
+        
+        
+        interval_list = [
+            pd.Interval(7200, 7500, 'both'),
+            pd.Interval(3000.1, 3000.1, 'both')
+            ]
+        self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
+        
                 
