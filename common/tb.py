@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import datetime
@@ -127,6 +128,7 @@ class TBReader_ExcelFormat1:
     def filter_tb_by_fy_and_ls_codes(self, fy, interval_list):
         '''
         interval_list = a list of pd.Interval
+                        a list of strings e.g. ['3', '4-5.5']
         '''
         
         df = self.get_data_by_fy(fy)
@@ -134,6 +136,12 @@ class TBReader_ExcelFormat1:
         # Loop through all the intervals
         temp = []
         for interval in interval_list:
+            
+            # Convert to interval type, if string is provided
+            if type(interval) in [str]:
+                interval = misc.convert_string_to_interval(interval)
+            
+            # Check overlap
             is_overlap = df["L/S (interval)"].apply(lambda i: i.overlaps(interval))
             is_overlap.name = interval
             temp.append(is_overlap)
@@ -220,9 +228,15 @@ if __name__ == "__main__":
     
     
     if True:
+            
+        # Specify the param fp    
+        dirname = os.path.dirname
+        luna_fp = dirname(dirname(__file__))
+        param_fp = os.path.join(luna_fp, 'templates')
+        fp = os.path.join(param_fp, "tb.xlsx")
         
         # Read the tb
-        fp = r"..\templates\tb.xlsx"
+        #fp = r"..\templates\tb.xlsx"
         sheet_name = "format1"
         
         fy_end_date = datetime.date(2022, 12, 31)
@@ -232,10 +246,14 @@ if __name__ == "__main__":
         df_processed_long = self.df_processed_long
         
         
+        # Test interval list
         interval_list = [
             pd.Interval(7200, 7500, 'both'),
             pd.Interval(3000.1, 3000.1, 'both')
             ]
-        self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
+        
+        interval_list = ["7200-7500", "3000.1"]
+        boolean, true_match, false_match = \
+            self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
         
                 
