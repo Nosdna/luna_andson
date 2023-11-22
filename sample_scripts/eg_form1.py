@@ -14,19 +14,60 @@ import luna.fsvi as fsvi
 
 class MASForm1_Generator:
     
-    def __init__(self, tb_classs, aged_ar_class, mapper_class):
+    def __init__(self, 
+                 tb_classs, aged_ar_class, mapper_class,
+                 fy = 2022):
         
         
         self.tb_class       = tb_class
         self.aged_ar_class  = aged_ar_class
         self.mapper_class   = mapper_class
+        self.fy = fy
         
-    def do_something(self):
+        self.main()
         
-        pass
-    
+    def main(self):
+        
+        self._map_varname_to_lscodes()
 
+    def _map_varname_to_lscodes(self):
+        
+        mapper_class = self.mapper_class
+        tb_class     = self.tb_class
+        
+        # get varname to ls code from mapper
+        varname_to_lscodes = mapper_class.varname_to_lscodes
+        
+        # get the tb for the current fy
+        tb_df = tb_class.get_data_by_fy(self.fy).copy()
+        tb_columns = tb_df.columns
+        
+        # screen thru
+        for varname in varname_to_lscodes.index:
+            #varname = "puc_pref_share_noncumulative"
+            lscode_intervals = varname_to_lscodes.at[varname]
+            
+            # Get the true and false matches
+            is_overlap, tb_df_true, tb_df_false = tb_class.filter_tb_by_fy_and_ls_codes(
+                self.fy, lscode_intervals)
+            
+            # Update the main table
+            tb_df[varname] = is_overlap
 
+        #
+        self.tb_columns_main = tb_columns
+        self.tb_with_varname = tb_df.copy()
+
+    def filter_tb_by_varname(self, varname):
+        
+        tb = self.tb_with_varname.copy()
+        
+        filtered_tb = tb[tb[varname]][self.tb_columns_main]
+        
+        return filtered_tb
+        
+        
+        
 
 
 if __name__ == "__main__":
@@ -44,12 +85,13 @@ if __name__ == "__main__":
     # AGED RECEIVABLES
     if True:
         aged_receivables_fp = os.path.join(template_folderpath, "aged_receivables.xlsx")
+        aged_receivables_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx"
         print (f"Your aged_receivables_fp is at {aged_receivables_fp}.")
         
         # Load the AR class
         aged_ar_class = common.AgedReceivablesReader_Format1(aged_receivables_fp, 
                                                         sheet_name = 0,            # Set the sheet name
-                                                        variance_threshold = 1E-9) # To relax criteria if required.
+                                                        variance_threshold = 0.1) # 1E-9) # To relax criteria if required.
         
         aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
                            ">90": ["91 - 120", "121 - 150", "150+"]}
@@ -60,6 +102,7 @@ if __name__ == "__main__":
     # TB
     if True:
         tb_fp = os.path.join(template_folderpath, "tb.xlsx")
+        tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
         print (f"Your tb_filepath is at {tb_fp}.")
         
         # Load the tb
@@ -87,4 +130,12 @@ if __name__ == "__main__":
 
 
     # CLASS
-    self = MASForm1_Generator(tb_class, aged_ar_class, mapper_class)
+    fy=2022
+    self = MASForm1_Generator(tb_class, aged_ar_class,
+                              mapper_class, fy=fy)
+    
+    # Get df by varname
+    filtered_tb = self.filter_tb_by_varname('current_asset_trade_debt_other')
+    
+    
+    
