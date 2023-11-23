@@ -1,8 +1,10 @@
+import os
 import pandas as pd
 import numpy as np
 import datetime
 import pyeasylib
 import luna.common.dates as dates
+import luna.common.misc as misc
 
 class TBReader_ExcelFormat1:
     
@@ -39,8 +41,9 @@ class TBReader_ExcelFormat1:
         if not hasattr(self, 'df1'):
 
             # Read the main df
-            df0 = pd.read_excel(self.fp, sheet_name = self.sheet_name, 
-                                engine = 'openpyxl')
+            df0 = pyeasylib.excellib.read_excel_with_xl_rows_cols(
+                self.fp, sheet_name = self.sheet_name
+                )
             
             # Strip empty spaces for strings
             df_processed = df0.applymap(lambda s: s.strip() if type(s) is str else s)
@@ -89,6 +92,10 @@ class TBReader_ExcelFormat1:
             for c in dates_converted:
                 df_processed[c] = df_processed[c].astype(float)
             
+            # Convert the ls code to interval
+            df_processed["L/S (interval)"] = df_processed["L/S"].apply(
+                misc.convert_string_to_interval)
+            
             # Convert to long
             df_processed_long = self._convert_to_long_format(df_processed, dates_converted)
             
@@ -117,7 +124,41 @@ class TBReader_ExcelFormat1:
             
         return self.gb_fy.get_group(fy)
         
+    
+    def filter_tb_by_fy_and_ls_codes(self, fy, interval_list):
+        '''
+        interval_list = a list of pd.Interval
+                        a list of strings e.g. ['3', '4-5.5']
+        '''
         
+        df = self.get_data_by_fy(fy)
+        
+        # Loop through all the intervals
+        temp = []
+        for interval in interval_list:
+            
+            # Convert to interval type, if string is provided
+            if type(interval) in [str]:
+                interval = misc.convert_string_to_interval(interval)
+            
+            # Check overlap
+            is_overlap = df["L/S (interval)"].apply(lambda i: i.overlaps(interval))
+            is_overlap.name = interval
+            temp.append(is_overlap)
+            
+        # Concat
+        temp_df = pd.concat(temp, axis=1, names = interval_list)
+        
+        # final is overlap
+        is_overlap = temp_df.any(axis=1)
+        
+        # get hits
+        true_match = df[is_overlap]
+        false_match = df[~is_overlap]
+        
+        return is_overlap, true_match, false_match
+    
+    
     def _process_dates(self, date_values):
         
         # Validate that date is of correct type
@@ -139,9 +180,12 @@ class TBReader_ExcelFormat1:
     
     def _convert_to_long_format(self, df, dates_converted):
         
+        # All other columns
+        other_columns = [c for c in df.columns if c not in dates_converted]
+        
         # Melt
         df_long = df.melt(
-            self.REQUIRED_HEADERS, 
+            other_columns, 
             dates_converted,
             var_name = "Date",
             value_name = "Value"
@@ -183,14 +227,33 @@ class TBReader_ExcelFormat1:
 if __name__ == "__main__":
     
     
-    if False:
+    if True:
+            
+        # Specify the param fp    
+        dirname = os.path.dirname
+        luna_fp = dirname(dirname(__file__))
+        param_fp = os.path.join(luna_fp, 'templates')
+        fp = os.path.join(param_fp, "tb.xlsx")
         
         # Read the tb
-        fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\sample_tb_data.xlsx"
+        #fp = r"..\templates\tb.xlsx"
         sheet_name = "format1"
+        
         fy_end_date = datetime.date(2022, 12, 31)
         
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
         
         df_processed_long = self.df_processed_long
+        
+        
+        # Test interval list
+        interval_list = [
+            pd.Interval(7200, 7500, 'both'),
+            pd.Interval(3000.1, 3000.1, 'both')
+            ]
+        
+        interval_list = ["7200-7500", "3000.1"]
+        boolean, true_match, false_match = \
+            self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
+        
                 
