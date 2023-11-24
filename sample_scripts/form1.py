@@ -62,6 +62,9 @@ class MASForm1_Generator:
         # Preference Share - Redeemable Non-current
         self.calculate_field_pref_share_redeemable_noncurrent()
 
+        # Trade creditors
+        self.calculate_field_trade_cred()
+
         # Amount due to director
         self.calculate_field_amt_due_to_dir()
 
@@ -355,9 +358,30 @@ class MASForm1_Generator:
         self.outputdf.loc[others_row, "Balance"] -= fund_mgmt_debtors
 
 
+    def calculate_field_trade_cred(self):
+        """
+        For now, collecting manual inputs for $ amount of total trade creditors and fund management
+
+        Agreed treatment: Fuzzy matching of client account names related to fund management 
+        (Can use the fuzzy matching from calculate_field_trade_debtors_fundmgmt above)
+        """
+
+        # Trade creditor for fund management
+        varname = "current_liab_trade_cred_fund_mgmt"
+        fundmgmt_cred = -int(self.inputs_df.at[2, "Answers"])
+        self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
+
+
+        # Other trade creditor
+        total_trade_cred = -int(self.inputs_df.at[1, "Answers"])
+        other_trade_cred = total_trade_cred-fundmgmt_cred
+        varname = "current_liab_trade_cred_other_other"
+        self.add_bal_to_template_by_varname(varname, other_trade_cred)
+
+
     def calculate_field_amt_due_to_dir(self):
         
-        input = self.inputs_df.at[1,"Answers"] 
+        input = self.inputs_df.at[3,"Answers"]
         varname = "current_liab_amount_due_to_director"
         
         if input == "NA":
@@ -372,7 +396,7 @@ class MASForm1_Generator:
 
     def calculate_field_loans_from_relatedco(self):
 
-        input = self.inputs_df.at[2,"Answers"]
+        input = self.inputs_df.at[4,"Answers"]
         varname = "current_liab_loans_from_related_co"
         
         if input == "NA":
@@ -386,18 +410,23 @@ class MASForm1_Generator:
 
 
     def calculate_field_other_current_liab(self):
-        # Minus amount due to director and loan from related co to get other current liability
-        varname_list = ["current_liab_amount_due_to_director", "current_liab_loans_from_related_co"]
+
+        # Minus amount due to director, loan from related co, and trade creditors to get other current liability
+        varname_list = ["current_liab_amount_due_to_director", 
+                        "current_liab_loans_from_related_co", 
+                        "current_liab_trade_cred_other_other", 
+                        "current_liab_trade_cred_fund_mgmt"]
+        
         rows = self.mapper_class.varname_to_index.loc[varname_list]
-        rpt_liability = self.outputdf.loc[rows, "Balance"].sum()
+        liab_amount = self.outputdf.loc[rows, "Balance"].sum()
 
         others_row = self.mapper_class.varname_to_index.at["current_liab_other"]
-        self.outputdf.loc[others_row, "Balance"] -= rpt_liability
+        self.outputdf.loc[others_row, "Balance"] -= liab_amount
 
 
     def calculate_field_amt_due_from_dir_secured(self):
         
-        input = self.inputs_df.at[3,"Answers"]
+        input = self.inputs_df.at[5,"Answers"]
         varname = "current_asset_amount_due_from_director_secured"
         
         if input == "NA":
@@ -412,7 +441,7 @@ class MASForm1_Generator:
 
     def calculate_field_amt_due_from_dir_unsecured(self):
         
-        input = self.inputs_df.at[4,"Answers"]
+        input = self.inputs_df.at[6,"Answers"]
         varname = "current_asset_amount_due_from_director_unsecured"
         
         if input == "NA":
@@ -427,7 +456,7 @@ class MASForm1_Generator:
 
     def calculate_field_loan_to_relatedco(self):
 
-        input = self.inputs_df.at[5,"Answers"]
+        input = self.inputs_df.at[7,"Answers"]
         varname = "current_asset_loans_to_related_co"
         
         if input == "NA":
@@ -443,6 +472,8 @@ class MASForm1_Generator:
     def collect_manual_inputs(self):
         question_list = [
             "List of client names related to fund management (trade debtors): ",
+            "Total trade creditors amount: $", 
+            "Trade creditors for fund managment amount: $",
             "Enter the client account numbers for amounts due to director or connected persons: ",
             "Enter the client account numbers for loans from related company or associated persons: ",
             "Enter the client account numbers for amounts due from director and connected persons (secured): ",
@@ -669,8 +700,8 @@ if __name__ == "__main__":
     
     # AGED RECEIVABLES
     if True:
-        aged_receivables_fp = os.path.join(template_folderpath, "aged_receivables.xlsx")
-        aged_receivables_fp = r"D:\Daciachinzq\Desktop\work\CPA FS Form 2\MG\clean_AR_listing.xlsx"
+        # aged_receivables_fp = os.path.join(template_folderpath, "aged_receivables.xlsx")
+        aged_receivables_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
         print (f"Your aged_receivables_fp is at {aged_receivables_fp}.")
         
         # Load the AR class
@@ -686,8 +717,11 @@ if __name__ == "__main__":
         
     # TB
     if True:
-        tb_fp = os.path.join(template_folderpath, "tb.xlsx")
-        tb_fp = r"D:\Daciachinzq\Desktop\work\CPA FS Form 1\myer gold\Myer Gold Investment Management - 2022 TB.xlsx"
+        # tb_fp = os.path.join(template_folderpath, "tb.xlsx")
+        mg = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\Myer Gold Investment Management - 2022 TB.xlsx"
+        ci = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
+
+        tb_fp = ci
         print (f"Your tb_filepath is at {tb_fp}.")
         
         # Load the tb
@@ -719,11 +753,25 @@ if __name__ == "__main__":
         fy=2022
         self = MASForm1_Generator(tb_class, aged_ar_class,
                                 mapper_class, fy=fy)
+        
+        # MG Inputs 
         # Harvest Platinium International Limited, Equity Summit Limited, Albatross Group, Nido Holdings Limited, Albatross Platinium VCC, Teo Joo Kim or Gerald Teo Tse Sian Or Teo, Oyster Enterprises Limited, Oyster Enterprises Limited, Lawrence Barki, Nico Gold Investments Ltd, UNO Capital Holdings Inc, Boulevard Worldwide Limited, Apollo Pte Limited, CAMSWARD PTE LTD, Granada Twin Investments, UNO Capital Holdings Inc, T & T Strategic Limited, Myer Gold Allocation Fund, Nasor International Limited, Tricor Services (BVI) Limited, Penny Yap, White Lotus Holdings Limited
+        # 0 
+        # 0
         # 2-2310, 2-2312
         # NA
         # 1-2420, 1-2452
         # NA
         # 1-2448, 1-2450
 
-        # self.outputdf.to_excel("f1_map_final.xlsx")
+        # CI Inputs
+        # NA
+        # 281060
+        # 0
+        # NA
+        # NA
+        # NA
+        # NA
+        # NA
+
+        # self.outputdf.to_excel("f1_map_ci.xlsx")
