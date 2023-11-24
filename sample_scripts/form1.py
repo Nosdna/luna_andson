@@ -364,7 +364,7 @@ class MASForm1_Generator:
 
         Agreed treatment: Fuzzy matching of client account names related to fund management 
         (Can use the fuzzy matching from calculate_field_trade_debtors_fundmgmt above)
-        """
+        """ 
 
         # Trade creditor for fund management
         varname = "current_liab_trade_cred_fund_mgmt"
@@ -709,19 +709,20 @@ if __name__ == "__main__":
                                                         sheet_name = 0,            # Set the sheet name
                                                         variance_threshold = 0.1) # 1E-9) # To relax criteria if required.
         
-        # aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
-        #                    ">90": ["91 - 120", "121 - 150", "150+"]}
+        aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
+                           ">90": ["91 - 120", "121 - 150", "150+"]}
         
-        # # Then we get the AR by company (index) and by new bins (columns)
-        # aged_df_by_company = aged_ar_class.get_AR_by_new_groups(aged_group_dict)
+        # Then we get the AR by company (index) and by new bins (columns)
+        aged_df_by_company = aged_ar_class.get_AR_by_new_groups(aged_group_dict)
         
     # TB
     if True:
         # tb_fp = os.path.join(template_folderpath, "tb.xlsx")
         mg = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\Myer Gold Investment Management - 2022 TB.xlsx"
         ci = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
+        icm = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\icm TB reformatted.xlsx"
 
-        tb_fp = ci
+        tb_fp = mg
         print (f"Your tb_filepath is at {tb_fp}.")
         
         # Load the tb
@@ -750,7 +751,7 @@ if __name__ == "__main__":
 
     if True:
     # CLASS
-        fy=2022
+        fy=2023
         self = MASForm1_Generator(tb_class, aged_ar_class,
                                 mapper_class, fy=fy)
         
@@ -774,4 +775,15 @@ if __name__ == "__main__":
         # NA
         # NA
 
-        # self.outputdf.to_excel("f1_map_ci.xlsx")
+        # ICM Inputs
+        # need to change fy to 2023
+        # NA
+        # 2902
+        # 0
+        # NA
+        # NA
+        # NA
+        # NA
+        # NA
+
+        # self.outputdf.to_excel("f1_map_icm.xlsx")
