@@ -10,7 +10,7 @@ import numpy as np
 import re
 from fuzzywuzzy import fuzz, process
 import sys
-sys.path.append("D:\Daciachinzq\Desktop\work\python")
+sys.path.append("D:\Daciachinzq\Desktop\DS\python")
 
 
 # Import luna package and fsvi package
@@ -48,55 +48,55 @@ class MASForm1_Generator:
         self.map_tb_to_output()
 
         # Ordinary Shares
-        self.calculate_field_ord_share()
+        self._calculate_field_ord_share()
 
         # Preference Share - Irredeemable Cumulative
-        self.calculate_field_pref_share_irredeemable_cumulative()
+        self._calculate_field_pref_share_irredeemable_cumulative()
 
         # Preference Share - Irredeemable Non-Cumulative
-        self.calculate_field_pref_share_irredeemable_noncumulative()
+        self._calculate_field_pref_share_irredeemable_noncumulative()
 
         # Preference Share - Redeemable Current
-        self.calculate_field_pref_share_redeemable_current()
+        self._calculate_field_pref_share_redeemable_current()
 
         # Preference Share - Redeemable Non-current
-        self.calculate_field_pref_share_redeemable_noncurrent()
+        self._calculate_field_pref_share_redeemable_noncurrent()
 
         # Trade creditors
-        self.calculate_field_trade_cred()
+        self._calculate_field_trade_cred()
 
         # Amount due to director
-        self.calculate_field_amt_due_to_dir()
+        self._calculate_field_amt_due_to_dir()
 
         # Loan from related corporations
-        self.calculate_field_loans_from_relatedco()
+        self._calculate_field_loans_from_relatedco()
 
         # Other current liability
-        self.calculate_field_other_current_liab()
+        self._calculate_field_other_current_liab()
 
         # Trade debtors - fund management
-        self.calculate_field_trade_debtors_fundmgmt()
+        self._calculate_field_trade_debtors_fundmgmt(80)
 
         # Trade debtors - others
-        self.calculate_field_trade_debt_other()
+        self._calculate_field_trade_debt_other()
 
         # Amount due from director - Secured
-        self.calculate_field_amt_due_from_dir_secured()
+        self._calculate_field_amt_due_from_dir_secured()
 
         # Amount due from director - Unsecured
-        self.calculate_field_amt_due_from_dir_unsecured()
+        self._calculate_field_amt_due_from_dir_unsecured()
 
         # Loan to related corporations
-        self.calculate_field_loan_to_relatedco()
+        self._calculate_field_loan_to_relatedco()
 
         # Other current assets - Deposit
-        self.calculate_field_deposit()
+        self._calculate_field_deposit()
         
         # Other current assets - Prepayment
-        self.calculate_field_prepayment()
+        self._calculate_field_prepayment()
 
         # Other current assets - Others
-        self.calculate_field_other_current_asset()
+        self._calculate_field_other_current_asset()
 
         # Absolute of Balance except for unappropriate profit or loss
         self.abs_of_balance_column()
@@ -176,13 +176,13 @@ class MASForm1_Generator:
         self.outputdf["Balance"] = varname_df.apply(self._get_total_by_varname)
 
 
-    def add_bal_to_template_by_varname(self, varname, value, total=None):
+    def add_bal_to_template_by_varname(self, varname, value, is_total_row=None):
         """
         total -> only need to use if it is a total row, the amount will be added to the subtotal column
 
         if not a total, amount added to the balance column
         """
-        if total==None:
+        if is_total_row is None:
             row = self.mapper_class.varname_to_index.at[varname]
             self.outputdf.loc[row, "Balance"] = value
 
@@ -190,8 +190,23 @@ class MASForm1_Generator:
             row = self.mapper_class.varname_to_index.at[varname]
             self.outputdf.loc[row, "Subtotal"] = value
     
-    def _auto_tagging_for_shares(self, filtered_tb):
 
+    def _auto_tagging_for_shares(self, filtered_tb):
+        """
+        Classify shares into 5 categories by regular matching of patterns:
+
+        Irredeemable preference shares will be split into cumulative and non-cumulative, if no pattern matched for cumulative or not, the default is set as cumulative
+        (a) Irredeemable Preference Share (Cumulative)
+        (b) Irredeemable Preference Share (Non-Cumulative)
+
+        Redeemable preference shares will be split into current and non-current portions, if no pattern matched for current or not, the default is set as current
+        (c) Redeemable Preference Share (Current)
+        (d) Redeemable Preference Share (Non-Current)
+
+        All remaining untagged accounts are classified as ordinary shares
+        (e) Ordinary Shares
+
+        """
         for i in filtered_tb.index:
             # Search for Irredeemable Preference Shares
             if re.search("(?i)irrede.*pref.*", filtered_tb.at[i, "Name"]):
@@ -217,7 +232,7 @@ class MASForm1_Generator:
         return filtered_tb
     
 
-    def calculate_field_ord_share(self):
+    def _calculate_field_ord_share(self):
         """
         Filter tb by varname for ord_shares, return value of ordinary shares
         Append value to self.outputdf
@@ -240,16 +255,15 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, ord_share)
 
 
-    def calculate_field_pref_share_irredeemable_cumulative(self):
+    def _calculate_field_pref_share_irredeemable_cumulative(self):
         varname = "puc_pref_share_cumulative"
-        # Do i need to repeat the if not hasattr()
 
         cumulative_share = self.tagged_shares.query("Tag=='Irredeemable Preference Share (Cumulative)'")
         cumulative_share = cumulative_share["Value"].sum()
         self.add_bal_to_template_by_varname(varname, cumulative_share)
     
     
-    def calculate_field_pref_share_irredeemable_noncumulative(self):
+    def _calculate_field_pref_share_irredeemable_noncumulative(self):
         varname = "puc_pref_share_noncumulative"
 
         noncumulative_share = self.tagged_shares.query("Tag=='Irredeemable Preference Share (Non-Cumulative)'")
@@ -257,7 +271,7 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, noncumulative_share)
 
 
-    def calculate_field_pref_share_redeemable_current(self):
+    def _calculate_field_pref_share_redeemable_current(self):
         varname = "current_liab_redeemable_pref_share"
 
         redeemable_current_share = self.tagged_shares.query("Tag=='Redeemable Preference Share (Current)'")
@@ -265,7 +279,7 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, redeemable_current_share)
 
 
-    def calculate_field_pref_share_redeemable_noncurrent(self):
+    def _calculate_field_pref_share_redeemable_noncurrent(self):
         varname = "noncurrent_liab_redeemable_pref_share"
 
         redeemable_noncurrent_share = self.tagged_shares.query("Tag=='Redeemable Preference Share (Non-Current)'")
@@ -273,7 +287,16 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, redeemable_noncurrent_share)
 
 
-    def calculate_field_deposit(self):
+    def _calculate_field_deposit(self):
+        """
+        Classify shares into 3 categories by regular matching of patterns:
+
+        (a) Deposit
+        (b) Prepayment
+        (c) Others
+
+        If no pattern matched, classified as others
+        """
         varname = "current_asset_other_deposit"
         filtered_tb = self.filter_tb_by_varname(varname)
 
@@ -298,7 +321,7 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, deposit)
 
 
-    def calculate_field_prepayment(self):
+    def _calculate_field_prepayment(self):
         varname = "current_asset_other_prepayment"
 
         prepayment = self.depo_prepaid.query("Indicator=='Prepayment'")
@@ -307,7 +330,7 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, prepayment)
 
 
-    def calculate_field_other_current_asset(self):
+    def _calculate_field_other_current_asset(self):
         varname = "current_asset_other_other"
 
         others = self.depo_prepaid.query("Indicator=='Others'")
@@ -326,7 +349,10 @@ class MASForm1_Generator:
         self.outputdf.loc[others_row, "Balance"] -= rpt_asset
 
 
-    def calculate_field_trade_debtors_fundmgmt(self):
+    def _calculate_field_trade_debtors_fundmgmt(self, fuzzy_match_threshold):
+        """
+        fuzzy_match_threshold -> int to set threshold for fuzzy matching of client/supplier names to the list provided by auditor
+        """
         varname = "current_asset_trade_debt_fund_mgmt"
 
         self.filter_tb_by_varname(varname)
@@ -334,12 +360,14 @@ class MASForm1_Generator:
         ar = self.aged_ar_class.df_processed_lcy[["Name", "Total Due"]]
         
         # Convert input string to list and strip the leading/trailing spaces
-        fundmgmt_list = [i.strip() for i in self.inputs_df.at[0,"Answers"].split(",")]
+        answer = self.inputs_df.at["List of client names related to fund management (trade debtors): ", "Answers"]
+
+        fundmgmt_list = [i.strip() for i in answer.split(",")]
 
         ar.loc[:,"Match_score"] = ar["Name"].apply(lambda x: process.extractOne(x, fundmgmt_list, scorer=fuzz.token_sort_ratio))
 
-        # Indicate if there is a match, match if 'Match_score' score is above threshold of 80 (can change its just an arbitrary number i chose)
-        ar.loc[:,"Matched?"] = ar["Match_score"].apply(lambda x: x[1]) >= 80
+        # Indicate if there is a match, match if 'Match_score' score is above fuzzy_match_threshold provided
+        ar.loc[:,"Matched?"] = ar["Match_score"].apply(lambda x: x[1]) >= fuzzy_match_threshold
 
         # Filter for matches and obtain the sum of Total Due
         fundmgmt_df = ar.query("`Matched?`==True")
@@ -349,7 +377,7 @@ class MASForm1_Generator:
         self.add_bal_to_template_by_varname(varname, fundmgmt_debtors)
 
 
-    def calculate_field_trade_debt_other(self):
+    def _calculate_field_trade_debt_other(self):
         # Minus amount of trade debt for fund management from total trade debt to get others
         fundmgmt_row = self.mapper_class.varname_to_index.at["current_asset_trade_debt_fund_mgmt"]
         fund_mgmt_debtors = self.outputdf.loc[fundmgmt_row, "Balance"]
@@ -358,7 +386,7 @@ class MASForm1_Generator:
         self.outputdf.loc[others_row, "Balance"] -= fund_mgmt_debtors
 
 
-    def calculate_field_trade_cred(self):
+    def _calculate_field_trade_cred(self):
         """
         For now, collecting manual inputs for $ amount of total trade creditors and fund management
 
@@ -368,48 +396,51 @@ class MASForm1_Generator:
 
         # Trade creditor for fund management
         varname = "current_liab_trade_cred_fund_mgmt"
-        fundmgmt_cred = -int(self.inputs_df.at[2, "Answers"])
+
+        answer = self.inputs_df.at["Trade creditors for fund managment amount: $", "Answers"]
+        fundmgmt_cred = -int(answer)
         self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
 
 
         # Other trade creditor
-        total_trade_cred = -int(self.inputs_df.at[1, "Answers"])
+        answer = self.inputs_df.at["Total trade creditors amount: $", "Answers"]
+        total_trade_cred = -int(answer)
         other_trade_cred = total_trade_cred-fundmgmt_cred
         varname = "current_liab_trade_cred_other_other"
         self.add_bal_to_template_by_varname(varname, other_trade_cred)
 
 
-    def calculate_field_amt_due_to_dir(self):
-        
-        input = self.inputs_df.at[3,"Answers"]
+    def _calculate_field_amt_due_to_dir(self):
+        answer = self.inputs_df.at["Enter the client account numbers for amounts due to director or connected persons: ", "Answers"]
+
         varname = "current_liab_amount_due_to_director"
         
-        if input == "NA":
+        if answer == "NA":
             pass
         else: 
-            client_acc_list = [i.strip() for i in input.split(",")]
+            client_acc_list = [i.strip() for i in answer.split(",")]
             amt_due_to_dir = self.tb_main[self.tb_main["Account No"].isin(client_acc_list)]
             amt_due_to_dir = amt_due_to_dir["Value"].sum()
 
             self.add_bal_to_template_by_varname(varname, amt_due_to_dir)
 
 
-    def calculate_field_loans_from_relatedco(self):
+    def _calculate_field_loans_from_relatedco(self):
 
-        input = self.inputs_df.at[4,"Answers"]
+        answer = self.inputs_df.at["Enter the client account numbers for loans from related company or associated persons: ", "Answers"]
         varname = "current_liab_loans_from_related_co"
         
-        if input == "NA":
+        if answer == "NA":
             pass
         else: 
-            client_acc_list = [i.strip() for i in input.split(",")]
+            client_acc_list = [i.strip() for i in answer.split(",")]
             loans_from_relatedco = self.tb_main[self.tb_main["Account No"].isin(client_acc_list)]
             loans_from_relatedco = loans_from_relatedco["Value"].sum()
 
             self.add_bal_to_template_by_varname(varname, loans_from_relatedco)
 
 
-    def calculate_field_other_current_liab(self):
+    def _calculate_field_other_current_liab(self):
 
         # Minus amount due to director, loan from related co, and trade creditors to get other current liability
         varname_list = ["current_liab_amount_due_to_director", 
@@ -424,45 +455,45 @@ class MASForm1_Generator:
         self.outputdf.loc[others_row, "Balance"] -= liab_amount
 
 
-    def calculate_field_amt_due_from_dir_secured(self):
+    def _calculate_field_amt_due_from_dir_secured(self):
         
-        input = self.inputs_df.at[5,"Answers"]
+        answer = self.inputs_df.at["Enter the client account numbers for amounts due from director and connected persons (secured): ", "Answers"]
         varname = "current_asset_amount_due_from_director_secured"
         
-        if input == "NA":
+        if answer == "NA":
             pass
         else: 
-            client_acc_list = [i.strip() for i in input.split(",")]
+            client_acc_list = [i.strip() for i in answer.split(",")]
             amt_due_from_dir_sec = self.tb_main[self.tb_main["Account No"].isin(client_acc_list)]
             amt_due_from_dir_sec = amt_due_from_dir_sec["Value"].sum()
 
             self.add_bal_to_template_by_varname(varname, amt_due_from_dir_sec)
 
 
-    def calculate_field_amt_due_from_dir_unsecured(self):
+    def _calculate_field_amt_due_from_dir_unsecured(self):
         
-        input = self.inputs_df.at[6,"Answers"]
+        answer = self.inputs_df.at["Enter the client account numbers for amounts due from director and connected persons (unsecured): ", "Answers"]
         varname = "current_asset_amount_due_from_director_unsecured"
         
-        if input == "NA":
+        if answer == "NA":
             pass
         else: 
-            client_acc_list = [i.strip() for i in input.split(",")]
+            client_acc_list = [i.strip() for i in answer.split(",")]
             amt_due_from_dir_unsec = self.tb_main[self.tb_main["Account No"].isin(client_acc_list)]
             amt_due_from_dir_unsec = amt_due_from_dir_unsec["Value"].sum()
 
             self.add_bal_to_template_by_varname(varname, amt_due_from_dir_unsec)
 
 
-    def calculate_field_loan_to_relatedco(self):
+    def _calculate_field_loan_to_relatedco(self):
 
-        input = self.inputs_df.at[7,"Answers"]
+        answer = self.inputs_df.at["Enter the client account numbers for loans to related company or associated person: ", "Answers"]
         varname = "current_asset_loans_to_related_co"
         
-        if input == "NA":
+        if answer == "NA":
             pass
         else: 
-            client_acc_list = [i.strip() for i in input.split(",")]
+            client_acc_list = [i.strip() for i in answer.split(",")]
             loan_to_relatedco = self.tb_main[self.tb_main["Account No"].isin(client_acc_list)]
             loan_to_relatedco = loan_to_relatedco["Value"].sum()
 
@@ -481,8 +512,11 @@ class MASForm1_Generator:
             "Enter the client account numbers for loans to related company or associated person: "]
         self.inputs_df = pd.DataFrame({"Questions": question_list,
                                        "Answers": ""})
-        
+
         self.inputs_df["Answers"] = self.inputs_df["Questions"].apply(input)
+        
+        self.inputs_df.set_index("Questions", inplace=True)
+        
 
     def abs_of_balance_column(self):
         """
@@ -751,7 +785,7 @@ if __name__ == "__main__":
 
     if True:
     # CLASS
-        fy=2023
+        fy=2022
         self = MASForm1_Generator(tb_class, aged_ar_class,
                                 mapper_class, fy=fy)
         
