@@ -23,13 +23,15 @@ class MASForm1_Generator:
     
     def __init__(self, 
                  tb_class, aged_ar_class, mapper_class,
-                 fy = 2022):
+                 fy,
+                 fuzzy_match_threshold):
         
         
         self.tb_class       = tb_class
         self.aged_ar_class  = aged_ar_class
         self.mapper_class   = mapper_class
         self.fy = fy
+        self.fuzzy_match_threshold = fuzzy_match_threshold
         
         self.main()
         
@@ -75,7 +77,7 @@ class MASForm1_Generator:
         self._calculate_field_other_current_liab()
 
         # Trade debtors - fund management
-        self._calculate_field_trade_debtors_fundmgmt(80)
+        self._calculate_field_trade_debtors_fundmgmt(self.fuzzy_match_threshold)
 
         # Trade debtors - others
         self._calculate_field_trade_debt_other()
@@ -787,7 +789,7 @@ if __name__ == "__main__":
     # CLASS
         fy=2022
         self = MASForm1_Generator(tb_class, aged_ar_class,
-                                mapper_class, fy=fy)
+                                mapper_class, fy=fy, fuzzy_match_threshold=80)
         
         # MG Inputs 
         # Harvest Platinium International Limited, Equity Summit Limited, Albatross Group, Nido Holdings Limited, Albatross Platinium VCC, Teo Joo Kim or Gerald Teo Tse Sian Or Teo, Oyster Enterprises Limited, Oyster Enterprises Limited, Lawrence Barki, Nico Gold Investments Ltd, UNO Capital Holdings Inc, Boulevard Worldwide Limited, Apollo Pte Limited, CAMSWARD PTE LTD, Granada Twin Investments, UNO Capital Holdings Inc, T & T Strategic Limited, Myer Gold Allocation Fund, Nasor International Limited, Tricor Services (BVI) Limited, Penny Yap, White Lotus Holdings Limited
