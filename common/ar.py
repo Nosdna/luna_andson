@@ -304,10 +304,11 @@ if __name__ == "__main__":
     if True:
         
         # Specify the file location
-        fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx"
+        fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
+        #r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx"
         
-        fp = "../templates/aged_receivables.xlsx"
-        sheet_name = "format1"
+        # fp = "../templates/aged_receivables.xlsx"
+        sheet_name = 0
         
         # Specify the variance threshold - this validates the total column with 
         # the sum of the bins. Try to set to 0 and see what happens.
