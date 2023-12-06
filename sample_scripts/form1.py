@@ -508,6 +508,10 @@ class MASForm1_Generator:
 
 
     def collect_manual_inputs(self):
+        '''
+        To run only when the user_inputs parameter is not specified when
+        the class is initialised.
+        '''
         question_list = [
             "List of client names related to fund management (trade debtors): ",
             "Total trade creditors amount: $", 
