@@ -13,25 +13,26 @@ import sys
 sys.path.append("D:\Daciachinzq\Desktop\DS\python")
 
 
-# Import luna package and fsvi package
-
+# Import luna package, fsvi package and pyeasylib
+import pyeasylib
 import luna
 import luna.common as common
 import luna.fsvi as fsvi
 
 class MASForm1_Generator:
-    
+
     def __init__(self, 
                  tb_class, aged_ar_class, mapper_class,
                  fy,
-                 fuzzy_match_threshold):
-        
+                 fuzzy_match_threshold = 80, 
+                 user_inputs = None):
         
         self.tb_class       = tb_class
         self.aged_ar_class  = aged_ar_class
         self.mapper_class   = mapper_class
         self.fy = fy
         self.fuzzy_match_threshold = fuzzy_match_threshold
+        self.user_inputs = user_inputs
         
         self.main()
         
@@ -43,8 +44,11 @@ class MASForm1_Generator:
         # Prepare output container -> copy from mapper_class
         self._prepare_output_container()
 
-        # Collect manual inputs
-        self.collect_manual_inputs()
+        # If user_inputs not specified, collect manual inputs interactively
+        if self.user_inputs is None:
+            self.collect_manual_inputs()
+        else:
+            pass
 
         # Map TB numbers to outputdf
         self.map_tb_to_output()
@@ -362,7 +366,7 @@ class MASForm1_Generator:
         ar = self.aged_ar_class.df_processed_lcy[["Name", "Total Due"]]
         
         # Convert input string to list and strip the leading/trailing spaces
-        answer = self.inputs_df.at["List of client names related to fund management (trade debtors): ", "Answers"]
+        answer = self.user_inputs.at["trade_debt_fund_mgmt", "Answer"]
 
         fundmgmt_list = [i.strip() for i in answer.split(",")]
 
@@ -399,13 +403,14 @@ class MASForm1_Generator:
         # Trade creditor for fund management
         varname = "current_liab_trade_cred_fund_mgmt"
 
-        answer = self.inputs_df.at["Trade creditors for fund managment amount: $", "Answers"]
+        
+        answer = self.user_inputs.at["trade_cred_fund_mgmt", "Answer"]
         fundmgmt_cred = -int(answer)
         self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
 
 
         # Other trade creditor
-        answer = self.inputs_df.at["Total trade creditors amount: $", "Answers"]
+        answer = self.user_inputs.at["total_trade_cred", "Answer"]
         total_trade_cred = -int(answer)
         other_trade_cred = total_trade_cred-fundmgmt_cred
         varname = "current_liab_trade_cred_other_other"
@@ -413,7 +418,7 @@ class MASForm1_Generator:
 
 
     def _calculate_field_amt_due_to_dir(self):
-        answer = self.inputs_df.at["Enter the client account numbers for amounts due to director or connected persons: ", "Answers"]
+        answer = self.user_inputs.at["amount_due_to_director", "Answer"]
 
         varname = "current_liab_amount_due_to_director"
         
@@ -429,7 +434,7 @@ class MASForm1_Generator:
 
     def _calculate_field_loans_from_relatedco(self):
 
-        answer = self.inputs_df.at["Enter the client account numbers for loans from related company or associated persons: ", "Answers"]
+        answer = self.user_inputs.at["loans_from_related_co", "Answer"]
         varname = "current_liab_loans_from_related_co"
         
         if answer == "NA":
@@ -459,7 +464,7 @@ class MASForm1_Generator:
 
     def _calculate_field_amt_due_from_dir_secured(self):
         
-        answer = self.inputs_df.at["Enter the client account numbers for amounts due from director and connected persons (secured): ", "Answers"]
+        answer = self.user_inputs.at["amount_due_from_director_secured", "Answer"]
         varname = "current_asset_amount_due_from_director_secured"
         
         if answer == "NA":
@@ -474,7 +479,7 @@ class MASForm1_Generator:
 
     def _calculate_field_amt_due_from_dir_unsecured(self):
         
-        answer = self.inputs_df.at["Enter the client account numbers for amounts due from director and connected persons (unsecured): ", "Answers"]
+        answer = self.user_inputs.at["amount_due_from_director_unsecured", "Answer"]
         varname = "current_asset_amount_due_from_director_unsecured"
         
         if answer == "NA":
@@ -489,7 +494,7 @@ class MASForm1_Generator:
 
     def _calculate_field_loan_to_relatedco(self):
 
-        answer = self.inputs_df.at["Enter the client account numbers for loans to related company or associated person: ", "Answers"]
+        answer = self.user_inputs.at["loans_to_related_co", "Answer"]
         varname = "current_asset_loans_to_related_co"
         
         if answer == "NA":
@@ -512,12 +517,19 @@ class MASForm1_Generator:
             "Enter the client account numbers for amounts due from director and connected persons (secured): ",
             "Enter the client account numbers for amounts due from director and connected persons (unsecured): ",
             "Enter the client account numbers for loans to related company or associated person: "]
-        self.inputs_df = pd.DataFrame({"Questions": question_list,
-                                       "Answers": ""})
-
-        self.inputs_df["Answers"] = self.inputs_df["Questions"].apply(input)
         
-        self.inputs_df.set_index("Questions", inplace=True)
+        varname_list = ['trade_debt_fund_mgmt', 
+                        'total_trade_cred', 
+                        'trade_cred_fund_mgmt', 
+                        'amount_due_to_director', 
+                        'loans_from_related_co', 'amount_due_from_director_secured', 
+                        'amount_due_from_director_unsecured', 
+                        'loans_to_related_co']
+
+        self.user_inputs = pd.DataFrame({"Question": question_list,
+                                       "Answer": ""}, index=varname_list)
+
+        self.user_inputs["Answer"] = self.user_inputs["Question"].apply(input)
         
 
     def abs_of_balance_column(self):
@@ -784,12 +796,35 @@ if __name__ == "__main__":
         # process df is here:
         df_processed = mapper_class.df_processed  # need to build methods
 
+    if True:
+    # Read user_inputs dataframe
+        df0 = pyeasylib.excellib.read_excel_with_xl_rows_cols (mas_tb_mapping_fp, sheet_name="Form 1 - Qns for user inputs")
+
+        # Get main table using required header and set index
+        REQUIRED_HEADERS = ["Index", "Question", "Answer"]
+        user_inputs = pyeasylib.pdlib.get_main_table_from_df(df0, REQUIRED_HEADERS)
+        user_inputs.set_index("Index", inplace=True)
+
+        # Fill answer column > depending on company, replace the variable for user_inputs["Answer"]
+        mg_answer_list = ["Harvest Platinium International Limited, Equity Summit Limited, Albatross Group, Nido Holdings Limited, Albatross Platinium VCC, Teo Joo Kim or Gerald Teo Tse Sian Or Teo, Oyster Enterprises Limited, Oyster Enterprises Limited, Lawrence Barki, Nico Gold Investments Ltd, UNO Capital Holdings Inc, Boulevard Worldwide Limited, Apollo Pte Limited, CAMSWARD PTE LTD, Granada Twin Investments, UNO Capital Holdings Inc, T & T Strategic Limited, Myer Gold Allocation Fund, Nasor International Limited, Tricor Services (BVI) Limited, Penny Yap, White Lotus Holdings Limited", 
+                                   "0", "0", "2-2310, 2-2312", "NA", 
+                                   "1-2420, 1-2452", "NA", "1-2448, 1-2450"]
+        ci_answer_list = ["NA", "281060", "0", "NA", "NA", "NA", "NA", "NA"]
+        icm_answer_list = ["NA", "2902", "0", "NA", "NA", "NA", "NA", "NA"]
+
+        user_inputs["Answer"] = mg_answer_list
+
 
     if True:
     # CLASS
         fy=2022
+
         self = MASForm1_Generator(tb_class, aged_ar_class,
-                                mapper_class, fy=fy, fuzzy_match_threshold=80)
+                                mapper_class, fy=fy, fuzzy_match_threshold=80, user_inputs=user_inputs)
+        
+        # To test, if user_inputs parameter is not specified, it will collect user inputs interactively
+        # self = MASForm1_Generator(tb_class, aged_ar_class,
+        #                         mapper_class, fy=fy, fuzzy_match_threshold=80)
         
         # MG Inputs 
         # Harvest Platinium International Limited, Equity Summit Limited, Albatross Group, Nido Holdings Limited, Albatross Platinium VCC, Teo Joo Kim or Gerald Teo Tse Sian Or Teo, Oyster Enterprises Limited, Oyster Enterprises Limited, Lawrence Barki, Nico Gold Investments Ltd, UNO Capital Holdings Inc, Boulevard Worldwide Limited, Apollo Pte Limited, CAMSWARD PTE LTD, Granada Twin Investments, UNO Capital Holdings Inc, T & T Strategic Limited, Myer Gold Allocation Fund, Nasor International Limited, Tricor Services (BVI) Limited, Penny Yap, White Lotus Holdings Limited
