@@ -5,14 +5,27 @@ import datetime
 import pyeasylib
 import luna.common.dates as dates
 import luna.common.misc as misc
+import luna.lunahub as lunahub
+import datetime
 
 class TBReader_ExcelFormat1:
     
     REQUIRED_HEADERS = ["Account No", "Name", "L/S", "Class"] 
     
-    def __init__(self, fp, sheet_name = 0, fy_end_date = None):
+    def __init__(self, 
+                 fp, sheet_name = 0, fy_end_date = None,
+                 client_number = None,
+                 client_name = None):
         '''
         Class to read TB from Excel file.
+        
+        
+        fy_end_date = the current FY end. Used to verify if the TB
+                      for the full year.
+                      
+        client_number = used to save to the lunahub
+        client_name = used to save to the lunahub        
+        
         
         Will be processed to the long format.
 
@@ -25,7 +38,9 @@ class TBReader_ExcelFormat1:
         # Initialize file and fy
         self.fp             = fp
         self.sheet_name     = sheet_name
-        self.fy_end_date    = fy_end_date  #will validate at the end       
+        self.fy_end_date    = fy_end_date  #will validate at the end
+        self.client_number  = client_number
+        self.client_name    = client_name
 
         # Run
         self.main()
@@ -35,6 +50,16 @@ class TBReader_ExcelFormat1:
         self.read_data_from_file()
         self.process_data()
         
+        
+        ####################################################################
+        # TO make this consistent across all tb classes
+        # Create a tb query class
+        tb_query_class = TBQueryClass(self.df_processed_long)
+        
+        # Unpack the methods to self
+        self.get_data_by_fy = tb_query_class.get_data_by_fy
+        self.filter_tb_by_fy_and_ls_codes = tb_query_class.filter_tb_by_fy_and_ls_codes
+        ##################################################################
         
     def read_data_from_file(self):
         
@@ -110,54 +135,7 @@ class TBReader_ExcelFormat1:
             self.fy_class           = fy_class
             
         return self.df_processed_long
-    
-    def get_data_by_fy(self, fy):
-        
-        if not hasattr(self, 'gb_fy'):
             
-            self.gb_fy = self.df_processed_long.groupby("FY")
-        
-        # Get
-        if fy not in self.gb_fy.groups:
-            valid_fys = list(self.gb_fy.groups.keys())
-            raise KeyError (f"FY={fy} not found. Valid FYs: {list(valid_fys)}")
-            
-        return self.gb_fy.get_group(fy)
-        
-    
-    def filter_tb_by_fy_and_ls_codes(self, fy, interval_list):
-        '''
-        interval_list = a list of pd.Interval
-                        a list of strings e.g. ['3', '4-5.5']
-        '''
-        
-        df = self.get_data_by_fy(fy)
-        
-        # Loop through all the intervals
-        temp = []
-        for interval in interval_list:
-            
-            # Convert to interval type, if string is provided
-            if type(interval) in [str]:
-                interval = misc.convert_string_to_interval(interval)
-            
-            # Check overlap
-            is_overlap = df["L/S (interval)"].apply(lambda i: i.overlaps(interval))
-            is_overlap.name = interval
-            temp.append(is_overlap)
-            
-        # Concat
-        temp_df = pd.concat(temp, axis=1, names = interval_list)
-        
-        # final is overlap
-        is_overlap = temp_df.any(axis=1)
-        
-        # get hits
-        true_match = df[is_overlap]
-        false_match = df[~is_overlap]
-        
-        return is_overlap, true_match, false_match
-    
     
     def _process_dates(self, date_values):
         
@@ -220,15 +198,246 @@ class TBReader_ExcelFormat1:
         df_processed_long["Completed FY?"] = df_processed_long["Date"].map(date_val_to_completeness)
         
         return df_processed_long.copy(), fy_class
+    
+    def _connect_to_lunahub(self):
         
-       
+        if not hasattr(self, 'lunahub_obj'):
+            
+            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
+            
+        return self.lunahub_obj
+    
+    def load_to_lunahub(self, client_number = None, client_name = None):
+        
+        # Check that we have clientno
+        clientno = self.client_number \
+                    if self.client_number is not None \
+                    else client_number
+        if clientno is None:
+            raise Exception ("Client number must be provided during "
+                             "initialisation or when calling this method.")
+        
+        # Check that we have client name
+        name = self.client_name \
+               if self.client_name is not None \
+               else client_name
+        if name is None:
+            raise Exception ("Client name must be provided during "
+                             "initialisation or when calling this method.")
+        
+        # Make a copy
+        df = self.df_processed_long.copy()
+        
+        # Get filter and convert to Lunahub format
+        column_mapper = {
+            "Account No": "ACCOUNTNUMBER",
+            "Name"      : "ACCOUNTNAME",
+            "L/S"       : "LSCODE",
+            "Class"     : "CLASS",
+            "Date"      : "DATE",
+            "Value"     : "VALUE",
+            "FY"        : "FY",
+            "Completed FY?" : "COMPLETEDFY"
+            }
+        
+        df = df[list(column_mapper.keys())].rename(columns=column_mapper)
+        
+        # Set the other info
+        clientno = self.client_number \
+                    if self.client_number is not None \
+                    else client_number
+        if clientno is None:
+            raise Exception ("Client number must be provided during "
+                             "initialisation or when calling this method.")
+            
+        # meta
+        uploader = os.getlogin().lower()
+        uploaddatetime = datetime.datetime.now()
+        
+        # Set remaining columns
+        df["CLIENTNUMBER"] = clientno
+        df["UPLOADER"] = uploader
+        df["UPLOADDATETIME"] =uploaddatetime
+        df["COMMENTS"] = None
+        
+        # Connect to lunahub
+        lunahub_obj = self._connect_to_lunahub()
+        
+        # --------------------------------------------------
+        # load tb table
+        lunahub_obj.insert_dataframe('tb', df)
+        #-------------------------------------------------------
+        
+                
+        # --------------------------------------------------
+        # load client table
+        client_table = lunahub_obj.read_table('client')
+        if clientno not in client_table["CLIENTNUMBER"].values:
+            
+            # append
+            data = pd.Series(
+                [clientno, name, fy_end_date.month, fy_end_date.day,
+                 uploader, uploaddatetime],
+                index = ["CLIENTNUMBER", "CLIENTNAME", "FY_END_MONTH",
+                         "FY_END_DAY", "UPLOADER", "UPLOADDATETIME"])
+            client_df = data.to_frame().T
+            
+            lunahub_obj.insert_dataframe('client', client_df)
+        #-------------------------------------------------------
 
+
+class TBReader_LunaHub:
+    
+    def __init__(self, client_number, fy, uploaddatetime=None):
+        '''
+        specify uploaddatetime (in str) when there are multiple versions of the same data.
+        '''
+        
+        
+        self.client_number  = client_number
+        self.fy             = fy
+        self.uploaddatetime = uploaddatetime
+        
+        self.main()
+    
+    def main(self):
+        
+        # Load
+        df_processed_long = self.load_from_tb()
+        
+        ####################################################################
+        # TO make this consistent across all tb classes
+        # Create a tb query class
+        tb_query_class = TBQueryClass(self.df_processed_long)
+        
+        # Unpack the methods to self
+        self.get_data_by_fy = tb_query_class.get_data_by_fy
+        self.filter_tb_by_fy_and_ls_codes = tb_query_class.filter_tb_by_fy_and_ls_codes
+        ##################################################################
+        
+    def _connect_to_lunahub(self):
+        
+        if not hasattr(self, 'lunahub_obj'):            
+            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
+            
+        return self.lunahub_obj
+
+    
+    def load_from_tb(self):
+        
+        lunahub_obj = self._connect_to_lunahub()
+        
+        query = (
+            "SELECT * FROM tb "
+            "WHERE "
+            f"([CLIENTNUMBER] = {self.client_number}) AND (YEAR([DATE]) = {self.fy})"
+            )
+                
+        df = lunahub_obj.read_table(query = query)
+        
+        # Check if there are multiple records for this run
+        version_df = df[["DATE", "UPLOADER", "UPLOADDATETIME", "COMMENTS"]].drop_duplicates()
+        
+        if (version_df.shape[0] > 1):
+            
+            if uploaddatetime is None:
+                
+                msg = f"Multiple records exist.\n\n{version_df.__repr__()}."
+                msg += "\n\nPlease set uploaddatetime."
+                
+                raise Exception (msg)
+                
+            else:
+                
+                if isinstance(uploaddatetime, str):
+                    uploaddatetime = pd.to_datetime(uploaddatetime)
+                
+                # Filter
+                df = df[df["UPLOADDATETIME"] == uploaddatetime]
+
+        # Map column names
+        column_mapper = {
+            'ACCOUNTNUMBER'     : 'Account No',
+            'ACCOUNTNAME'       : 'Name',
+            'LSCODE'            : 'L/S',
+            'CLASS'             : 'Class',
+            'DATE'              : 'Date',
+            'VALUE'             : 'Value',
+            "FY"                : "FY",
+            "COMPLETEDFY"       : "Completed FY?"}
+        
+        df = df.rename(columns = column_mapper)[list(column_mapper.values())]
+        
+        # Convert L/S code to intervals
+        df["L/S (interval)"] = df["L/S"].astype(str).apply(
+            misc.convert_string_to_interval)
+            
+        self.df_processed_long = df.copy()
+        
+        return self.df_processed_long
+          
+
+class TBQueryClass:
+    
+    def __init__(self, df_processed_long):
+        
+        self.df_processed_long = df_processed_long
+
+    def get_data_by_fy(self, fy):
+        
+        if not hasattr(self, 'gb_fy'):
+            
+            self.gb_fy = self.df_processed_long.groupby("FY")
+        
+        # Get
+        if fy not in self.gb_fy.groups:
+            valid_fys = list(self.gb_fy.groups.keys())
+            raise KeyError (f"FY={fy} not found. Valid FYs: {list(valid_fys)}")
+            
+        return self.gb_fy.get_group(fy)
+        
+    
+    def filter_tb_by_fy_and_ls_codes(self, fy, interval_list):
+        '''
+        interval_list = a list of pd.Interval
+                        a list of strings e.g. ['3', '4-5.5']
+        '''
+        
+        if not isinstance(interval_list, list):
+            err = "Input interval_list must be a list of intervals."
+            raise Exception (err)
+            
+        df = self.get_data_by_fy(fy)
+        
+        # Loop through all the intervals
+        temp = []
+        for interval in interval_list:
+            
+            # Convert to interval type, if string is provided
+            if type(interval) in [str]:
+                interval = misc.convert_string_to_interval(interval)
+            
+            # Check overlap
+            is_overlap = df["L/S (interval)"].apply(lambda i: i.overlaps(interval))
+            is_overlap.name = interval
+            temp.append(is_overlap)
+            
+        # Concat
+        temp_df = pd.concat(temp, axis=1, names = interval_list)
+        
+        # final is overlap
+        is_overlap = temp_df.any(axis=1)
+        
+        # get hits
+        true_match = df[is_overlap]
+        false_match = df[~is_overlap]
+        
+        return is_overlap, true_match, false_match
 
 if __name__ == "__main__":
     
-    
-    if True:
-            
+    # Test ExcelFormat reader
+    if False:
         # Specify the param fp    
         dirname = os.path.dirname
         luna_fp = dirname(dirname(__file__))
@@ -240,8 +449,10 @@ if __name__ == "__main__":
         sheet_name = "format1"
         
         fy_end_date = datetime.date(2022, 12, 31)
-        
-        self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date)
+        client_number = 9999
+        client_name = "tester"
+        self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date,
+                                     client_number = client_number, client_name = client_name)
         
         df_processed_long = self.df_processed_long
         
@@ -256,4 +467,23 @@ if __name__ == "__main__":
         boolean, true_match, false_match = \
             self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
         
+        assert False
+        # Looad and delete from lunahub
+        if False:
+        
+            # Test load to lunahub
+            self.load_to_lunahub()
+                    
+            
+            # Delete from luunahub
+            self.lunahub_obj.delete('tb', ["CLIENTNUMBER"], pd.DataFrame([[client_number]], columns=["CLIENTNUMBER"]))
+            self.lunahub_obj.delete('client', ["CLIENTNUMBER"], pd.DataFrame([[client_number]], columns=["CLIENTNUMBER"]))
+            
+            
+    if False:
                 
+        # TESTER TBReader_LunaHub
+        client_number = 7167
+        fy            = 2022
+        
+        self = TBReader_LunaHub(client_number, fy)
