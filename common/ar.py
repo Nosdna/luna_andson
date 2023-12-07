@@ -64,14 +64,18 @@ class AgedReceivablesReader_Format1:
         # validate total
         self._validate_total_value()
         
-        # convert to local currency
-        self._convert_to_local_currency()
-        
         # process bins
         self._process_bins()
         
-        # convert to long
-        self._convert_to_long_format()
+        # convert to long format
+        self._convert_to_long_format(self.df_processed)
+        
+        # convert to local currency
+        self._convert_to_local_currency()
+        
+
+        
+
     
     def _validate_total_value(self):
         
@@ -105,22 +109,14 @@ class AgedReceivablesReader_Format1:
     def _convert_to_local_currency(self):
         
         # Get attrs
-        df_processed = self.df_processed
-        amt_columns = self.amt_columns
+        df_processed_long = self.df_processed_long.copy()
         
-        # Make a copy
-        df_processed_lcy = df_processed.copy()
+        value_lcy = df_processed_long["Value (FCY)"] * df_processed_long["Conversion Factor"]
         
-        # Convert
-        for amt_col in amt_columns:
-            df_processed_lcy[amt_col] = \
-                df_processed_lcy[amt_col] * df_processed_lcy["Conversion Factor"]
+        df_processed_long["Value (LCY)"] = value_lcy
         
-        # avoid confusion - drop currency and conversion column
-        for col in ["Currency", "Conversion Factor"]:
-            df_processed_lcy = df_processed_lcy.drop(col, axis=1)
+        self.df_processed_long_lcy = df_processed_long.copy()
         
-        self.df_processed_lcy = df_processed_lcy.copy()
     
     def _process_bins(self):
         
@@ -152,47 +148,51 @@ class AgedReceivablesReader_Format1:
                 
         self.bin_df = bin_df.copy()
         
+        return bin_df
+        
             
-    def _convert_to_long_format(self):
+    def _convert_to_long_format(self, df):
         
         # get attr
-        df_processed_lcy = self.df_processed_lcy.copy().reset_index()
-        bin_df = self.bin_df
+        df = df.copy().reset_index()
         
         # Get the bin cols
+        bin_df = self.bin_df
         bin_columns = self.bin_columns
-        non_value_columns = [c for c in df_processed_lcy.columns if c not in self.amt_columns]
+        non_value_columns = [c for c in df.columns if c not in self.amt_columns]
         
         # 
-        df_processed_lcy_long = df_processed_lcy.melt(
+        df_long = df.melt(
             non_value_columns, bin_columns,
             var_name = "Interval (str)",
-            value_name = "Value")
+            value_name = "Value (FCY)")
         
         # temp order
-        df_processed_lcy_long["bin_order"] = bin_df["Order"].reindex(
-            df_processed_lcy_long["Interval (str)"]).values
+        df_long["bin_order"] = bin_df["Order"].reindex(
+            df_long["Interval (str)"]).values
 
         # add the bin interval
-        df_processed_lcy_long["Interval"] = bin_df["Interval"].reindex(
-            df_processed_lcy_long["Interval (str)"]).values
+        df_long["Interval"] = bin_df["Interval"].reindex(
+            df_long["Interval (str)"]).values
         
         # sort
         sort_by = ["ExcelRow", "bin_order"]
-        df_processed_lcy_long = df_processed_lcy_long.sort_values(sort_by)
+        df_long = df_long.sort_values(sort_by)
         
         # drop both Excel row and bin order
         for c in sort_by:
-            df_processed_lcy_long = df_processed_lcy_long.drop(c, axis=1)
+            df_long = df_long.drop(c, axis=1)
 
         # bring value to last row
-        new_col_order = [c for c in df_processed_lcy_long.columns if c != "Value"] + ["Value"]
-        df_processed_lcy_long = df_processed_lcy_long[new_col_order]
+        new_col_order = [c for c in df_long.columns if c != "Value (FCY)"] + ["Value (FCY)"]
+        df_long = df_long[new_col_order]
         
         # reset index, as it is not meaningful anymore
-        df_processed_lcy_long = df_processed_lcy_long.reset_index(drop=True)
+        df_long = df_long.reset_index(drop=True)
         
-        self.df_processed_lcy_long = df_processed_lcy_long.copy()
+        self.df_processed_long = df_long.copy()
+        
+        
     
     def _split_AR_to_new_groups(self, group_dict):
         '''
@@ -215,7 +215,7 @@ class AgedReceivablesReader_Format1:
         if name not in self.regrouped_dict:
                         
             # Get attr
-            df_processed_lcy_long = self.df_processed_lcy_long.copy()
+            df_processed_long_lcy = self.df_processed_long_lcy.copy()
             bin_df = self.bin_df.copy()
             
             # Verify that there is no duplicates
@@ -233,11 +233,11 @@ class AgedReceivablesReader_Format1:
             # create a mapper and add a new group column
             mapper_series = pd.Series([n for n in group_dict for b in group_dict[n]],
                                       index = specified_bins)
-            df_processed_lcy_long["Group"] = mapper_series.reindex(
-                df_processed_lcy_long["Interval (str)"]).values
+            df_processed_long_lcy["Group"] = mapper_series.reindex(
+                df_processed_long_lcy["Interval (str)"]).values
             
             # save the data
-            self.regrouped_dict[name] = df_processed_lcy_long.copy()
+            self.regrouped_dict[name] = df_processed_long_lcy.copy()
             
         return self.regrouped_dict[name]
 
@@ -245,8 +245,9 @@ class AgedReceivablesReader_Format1:
         
         df = self._split_AR_to_new_groups(group_dict)
         
+        # Value is in foreign currency. only make sense if it's lcy
         return df.pivot_table(
-            "Value", index="Name", columns="Group", aggfunc="sum")
+            "Value (LCY)", index="Name", columns="Group", aggfunc="sum")
         
                     
 
