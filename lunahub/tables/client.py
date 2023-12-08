@@ -128,7 +128,7 @@ class ClientInfoUploader_To_LunaHub:
                         )
                     raise Exception (err)
 
-class ClientInfoUploader_From_LunaHub:
+class ClientInfoLoader_From_LunaHub:
     
     def __init__(self):
         
