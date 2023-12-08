@@ -6,6 +6,7 @@ import pyeasylib
 import luna.common.dates as dates
 import luna.common.misc as misc
 import luna.lunahub as lunahub
+import luna.lunahub.tables as tables
 import datetime
 
 class TBReader_ExcelFormat1:
@@ -241,15 +242,7 @@ class TBReader_ExcelFormat1:
             }
         
         df = df[list(column_mapper.keys())].rename(columns=column_mapper)
-        
-        # Set the other info
-        clientno = self.client_number \
-                    if self.client_number is not None \
-                    else client_number
-        if clientno is None:
-            raise Exception ("Client number must be provided during "
-                             "initialisation or when calling this method.")
-            
+                    
         # meta
         uploader = os.getlogin().lower()
         uploaddatetime = datetime.datetime.now()
@@ -271,18 +264,14 @@ class TBReader_ExcelFormat1:
                 
         # --------------------------------------------------
         # load client table
-        client_table = lunahub_obj.read_table('client')
-        if clientno not in client_table["CLIENTNUMBER"].values:
-            
-            # append
-            data = pd.Series(
-                [clientno, name, fy_end_date.month, fy_end_date.day,
-                 uploader, uploaddatetime],
-                index = ["CLIENTNUMBER", "CLIENTNAME", "FY_END_MONTH",
-                         "FY_END_DAY", "UPLOADER", "UPLOADDATETIME"])
-            client_df = data.to_frame().T
-            
-            lunahub_obj.insert_dataframe('client', client_df)
+        client_uploader = tables.client.ClientInfoUploader_To_LunaHub(
+            clientno, name, self.fy_end_date, 
+            uploader = None, uploaddatetime = None,
+            lunahub_obj = lunahub_obj,
+            force_insert = False
+            )
+        client_uploader.main()
+
         #-------------------------------------------------------
 
 
@@ -450,7 +439,7 @@ if __name__ == "__main__":
         
         fy_end_date = datetime.date(2022, 12, 31)
         client_number = 9999
-        client_name = "tester"
+        client_name = "tester2"
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date,
                                      client_number = client_number, client_name = client_name)
         
