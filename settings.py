@@ -1,5 +1,12 @@
-# Load LunaHub configs
-# secrets.py file is stored separately
+'''
+Contains settings for the lunaapp.
+
+Includes:
+    - LUNAHUB_CONFIG_FILEPATH -> secrets.py that contains login credentials.
+    - PYEASYLIB_FOLDERPATH    -> folderpath of the pyeasylib
+'''
+
+
 import os
 import sys
 
