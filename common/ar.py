@@ -6,12 +6,14 @@ import os
 import datetime
 import luna.lunahub as lunahub
 import luna.lunahub.tables as tables
+import numpy as np
 
 AGED_AR_TO_LUNAHUB_MAPPER = {
     "Name"              : "NAME",
     "Currency"          : "CURRENCY",
     "Conversion Factor" : "CONVERSIONFACTOR",
     "Interval (str)"    : "INTERVALSTR",
+    "Interval"          : "INTERVAL",
     "Value (FCY)"       : "VALUEFCY",
     "Value (LCY)"       : "VALUELCY",
     "FY"                : "FY",
@@ -394,13 +396,12 @@ class AgedReceivablesUploader_To_LunaHub:
 
     def main(self):
         
-        print ("In main")
+        
         self.upload_client()
         
         self.upload_ar()
         
-
-
+        
     def upload_ar(self):
         
         # Convert to lunahub format
@@ -421,7 +422,6 @@ class AgedReceivablesUploader_To_LunaHub:
         df = df[cols]
         
         # Load to lunahub
-        print ("Inserting AR")
         self.lunahub_obj.insert_dataframe('ar_aged', df)
         
     def upload_client(self):       
@@ -438,6 +438,111 @@ class AgedReceivablesUploader_To_LunaHub:
 
         #-------------------------------------------------------
         
+class AgedReceivablesLoader_From_LunaHub:
+    
+    def __init__(self, 
+                 client_number,
+                 fy,
+                 uploaddatetime = None,
+                 lunahub_obj = None):
+        '''
+        specify uploaddatetime (in str) when there are multiple versions of the same data.
+        '''
+        
+        self.client_number  = client_number
+        self.fy             = fy
+        self.uploaddatetime = uploaddatetime
+        self.lunahub_obj    = lunahub_obj
+        
+        # Initialise lunahub obj if None
+        if self.lunahub_obj is None:
+            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
+            
+        # Main
+        self.main()
+            
+    def main(self):
+        
+        self.read_data()
+        self.process()
+
+    def read_data(self):
+        
+        df0 = self.lunahub_obj.read_table("ar_aged")
+        
+        # Check client
+        is_client = df0["CLIENTNUMBER"] == self.client_number
+        if not is_client.any():
+            raise Exception ("Data not found for client_number={self.client_number}.")
+        
+        # Check FY
+        is_fy = df0["FY"] == self.fy
+        if not is_fy.any():
+            raise Exception ("Data not found for fy={self.fy}.")
+    
+        # Filter
+        df = df0[is_client & is_fy]
+        
+        # Filter by uploaddatettime
+        if self.uploaddatetime is not None:
+            
+            dt = pd.to_datetime(self.uploaddatetime)
+            df = df[df["UPLOADDATETIME"] == dt]
+            
+            if df.shape[0] == 0:
+                raise Exception ("No data found.")        
+        
+        # Check if there are multiple upload dates
+        upload_info = df[["UPLOADDATETIME", "COMMENTS"]].drop_duplicates()
+        if upload_info.shape[0] > 1:
+            raise Exception (
+                f"Multiple uploads for the data:\n\n{upload_info.__repr__()}"
+                "\n\nPlease specify the uploaddatetime during initialisation.")
+            
+        self.df0 = df0
+        self.df = df
+        
+    def process(self):
+        # 1) add the interval cols
+        # 2) format the cols
+        
+        # Get
+        df = self.df
+        
+        # Create the interval col
+        df["Interval (str)"] = None
+        df["Interval"]       = None
+        
+        for i in df.index:
+            
+            lval = df.at[i, "LEFTBINVALUE"]
+            rval = df.at[i, "RIGHTBINVALUE"]
+            
+            if rval == 999999:
+                intervalstr = f"{lval}+"
+                interval = pd.Interval(lval, np.inf, closed='left')
+            else:
+                intervalstr = f"{lval} - {rval}"
+                interval = pd.Interval(lval, rval, closed='both')
+            
+            # Update
+            df.at[i, "Interval (str)"] = intervalstr
+            df.at[i, "Interval"] = interval
+            
+        #
+        mapper = {v: k for k, v in AGED_AR_TO_LUNAHUB_MAPPER.items()}
+        df = df.rename(columns=mapper)
+            
+        # reorder cols
+        cols = list(mapper.values())
+        cols = cols + [c for c in df.columns if c not in cols]
+    
+        df = df[cols]
+        
+        self.df = df
+        
+    
+        
 if __name__ == "__main__":
     
     if False:
@@ -449,13 +554,10 @@ if __name__ == "__main__":
 
     
     # Tester for AgedReceivablesReader_Format1
-    if True:
+    if False:
         
-        # Specify the file location
-        fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx"
-        
+        # Specify the file location       
         fp = "../templates/aged_receivables.xlsx"
-        
         sheet_name = "format1"
         
         # Specify the variance threshold - this validates the total column with 
@@ -484,4 +586,15 @@ if __name__ == "__main__":
         # Then we get the AR by company (index) and by new bins (columns)
         ar_by_new_grouping = self.get_AR_by_new_groups(group_dict)
         
+    
+    # Tester to extract
+    if True:
         
+        client_number = 1
+        fy = 2022
+        uploaddatetime = '2023-12-08 18:39:03.533'
+        lunahub_obj = None
+        
+        self = AgedReceivablesLoader_From_LunaHub(client_number, fy, 
+                                                  uploaddatetime = uploaddatetime,
+                                                  lunahub_obj = lunahub_obj)
