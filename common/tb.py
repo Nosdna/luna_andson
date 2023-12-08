@@ -16,7 +16,8 @@ class TBReader_ExcelFormat1:
     def __init__(self, 
                  fp, sheet_name = 0, fy_end_date = None,
                  client_number = None,
-                 client_name = None):
+                 client_name = None,
+                 insert_to_lunahub = False):
         '''
         Class to read TB from Excel file.
         
@@ -42,6 +43,7 @@ class TBReader_ExcelFormat1:
         self.fy_end_date    = fy_end_date  #will validate at the end
         self.client_number  = client_number
         self.client_name    = client_name
+        self.insert_to_lunahub = insert_to_lunahub
 
         # Run
         self.main()
@@ -50,6 +52,11 @@ class TBReader_ExcelFormat1:
         
         self.read_data_from_file()
         self.process_data()
+        
+        if self.insert_to_lunahub:
+            
+            self.load_to_lunahub(client_number = self.client_number, 
+                                 client_name = self.client_name)
         
         
         ####################################################################
@@ -441,7 +448,8 @@ if __name__ == "__main__":
         client_number = 9999
         client_name = "tester2"
         self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date,
-                                     client_number = client_number, client_name = client_name)
+                                     client_number = client_number, client_name = client_name,
+                                     insert_to_lunahub = False)
         
         df_processed_long = self.df_processed_long
         
