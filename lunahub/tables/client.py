@@ -31,15 +31,20 @@ class ClientInfoUploader_To_LunaHub:
         self.client_number = int(client_number)
         self.client_name   = client_name
         self.fy_end_date   = fy_end_date
-        self.lunahub_obj   = lunahub_obj
         self.force_insert  = force_insert
+        self.uploader      = uploader
+        self.uploaddatetime = uploaddatetime
+        self.lunahub_obj   = lunahub_obj
         
-        if uploader is None:
+        if self.uploader is None:
             self.uploader = os.getlogin()
         
-        if uploaddatetime is None:
+        if self.uploaddatetime is None:
             self.uploaddatetime = datetime.datetime.now()
-    
+               
+        if self.lunahub_obj is None:
+            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
+            
     def main(self):
         
         self.process_data()
@@ -71,11 +76,6 @@ class ClientInfoUploader_To_LunaHub:
             
             # Insert
             self.lunahub_obj.insert_dataframe('client', df2)
-            
-        
-        # Connect to lunahub        
-        if self.lunahub_obj is None:
-            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
             
         # Get current data
         df = self.lunahub_obj.read_table("client")
@@ -138,7 +138,7 @@ class ClientInfoLoader_From_LunaHub:
 if __name__ == "__main__":
     
     # Test adding to table
-    if True:
+    if False:
         
         client_number = 1
         client_name = "MA5C"
