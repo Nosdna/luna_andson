@@ -76,7 +76,7 @@ class MASForm1_Generator:
         self.update_fees_receivables_tempdf(aged_receivables_fp)
         self.update_adjusted_asset_tempdf()
         self.map_adjusted_asset()
-        self.map_avg_adjusted_asset
+        self.map_avg_adjusted_asset()
         self.map_aa_threshold()
         self.column_mapper()
         self.output_excel()
