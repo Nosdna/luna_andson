@@ -27,11 +27,23 @@ class ClientInfoUploader_To_LunaHub(LunaHubBaseUploader):
         '''
         
         # Save as attribute
-        self.client_number = int(client_number)
+        self.client_number = client_number
         self.client_name   = client_name
         self.fy_end_date   = fy_end_date
         self.force_insert  = force_insert
 
+        # check that client number, client name, fy end date cannot be None
+        for name in ["client_number", "client_name", "fy_end_date"]:
+            if getattr(self, name) is None:
+                raise Exception (f"Attribute {name}=None. Must be specified.")
+
+        # Convert client number to integer
+        try:
+            self.client_number = int(self.client_number)
+        except ValueError as e:
+            err = f"{str(e)}\n\nClient number must be a digit."
+            raise ValueError (err)
+            
         # Init parent class        
         LunaHubBaseUploader.__init__(self,
                                      lunahub_obj    = lunahub_obj,
