@@ -28,6 +28,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 from openpyxl.utils import column_index_from_string
 
+from luna.common.workbk import CreditDropdownList
 
 class MASForm1_Generator:
     
@@ -54,9 +55,6 @@ class MASForm1_Generator:
         self.map_future_tax_benefits()
         self.map_base_capital()
 
-
-        ##self.test()
-
         self.collect_manual_inputs()
         self.map_unsecured_rlt_corp()
         self.map_other_unsecured_loans()
@@ -65,7 +63,6 @@ class MASForm1_Generator:
         self.update_deductions_tempdf()
         
         self.map_financial_resources()
-
 
         self.awp_processing()
         self.map_operational_rr()
@@ -83,6 +80,7 @@ class MASForm1_Generator:
         self.map_aa_threshold()
         self.column_mapper()
         self.output_excel()
+        self.output_excel_trr()
         
 
     def _prepare_output_container(self):
@@ -153,13 +151,9 @@ class MASForm1_Generator:
                 print(f" Mapped {name} : {amt}")   
         
         print(f" Mapped {varname} : {total_balance}") 
- 
- #GL
-    # def test(self):
-    #     gl = self.gl_class.gl_processing()
-    #     print(gl)
 
-    def filter_gl(self, month_end):
+
+    def _filter_gl(self, month_end):
         gl = self.gl_class.gl.copy()
 
         gl["Posting Date"] = pd.to_datetime(gl["Posting Date"], 
@@ -169,7 +163,7 @@ class MASForm1_Generator:
 
         return filtered_gl
     
-    def get_ending_balance(self, filtered_gl):
+    def _get_ending_balance(self, filtered_gl):
         self.gl_mvmt = filtered_gl.groupby([
             "GL Account No", 
             "GL Account Name"]).agg({"Amount": "sum", 
@@ -179,7 +173,7 @@ class MASForm1_Generator:
         self.gl_mvmt.reset_index(inplace=True)
         return self.gl_mvmt
     
-    def get_gl_tb(self, gl, tb):
+    def _get_gl_tb(self, gl, tb):
         # Get GL with TB L/S codes 
         gl_tb = tb.merge(gl, how="left", left_on="Account No", right_on="GL Account No")
 
@@ -193,17 +187,17 @@ class MASForm1_Generator:
 
         month_end = fy_end_date.month
         
-        first_month = self.filter_gl(month_end-2)
-        second_month = self.filter_gl(month_end-1)
-        third_month = self.filter_gl(month_end)
+        first_month = self._filter_gl(month_end-2)
+        second_month = self._filter_gl(month_end-1)
+        third_month = self._filter_gl(month_end)
         
-        first_month = self.get_ending_balance(first_month)
-        second_month = self.get_ending_balance(second_month)
-        third_month = self.get_ending_balance(third_month)
+        first_month = self._get_ending_balance(first_month)
+        second_month = self._get_ending_balance(second_month)
+        third_month = self._get_ending_balance(third_month)
 
-        first_month = self.get_gl_tb(first_month, tb_df)
-        second_month = self.get_gl_tb(second_month, tb_df)
-        third_month = self.get_gl_tb(third_month, tb_df)
+        first_month = self._get_gl_tb(first_month, tb_df)
+        second_month = self._get_gl_tb(second_month, tb_df)
+        third_month = self._get_gl_tb(third_month, tb_df)
 
         return month_end, first_month, second_month, third_month
     
@@ -226,8 +220,7 @@ class MASForm1_Generator:
     def map_future_tax_benefits(self):
         varname = "dfr_future_incometax_benefits"
         month_end, first_month, second_month, third_month = self.gl_ageing()
-        print()
-        
+  
         ftb = third_month[third_month["L/S"]== 5850]
         future_tax_benefits = ftb["Value"].sum()
 
@@ -292,26 +285,48 @@ class MASForm1_Generator:
         print(f" Mapped {fr_base_capital_nhof_varname} : {total_base_capital_nhof}")  
 
     def collect_manual_inputs(self):
+        '''
+        To run only when the user_inputs parameter is not specified when
+        the class is initialised.
+        '''
         question_list = [
-            "Unsecured amount due from related corporations: $",    # 0
-            "Account no for Other unsecured loans and advances: ",  # NA
-            "Amount of Off-balance sheet items for last 3 months (separate each amount with a comma): ", # 0,0,0
-            "Amount of Payment on behalf for last 3 months (separate each amount with a comma): " # 644.46,123.89, 6097.46 
+            "Unsecured amount due from related corporations: $",    
+            "Account no for Other unsecured loans and advances: ",  
+            "Amount of Off-balance sheet items for last 3 months (separate each amount with a comma): ", 
+            "Amount of Payment on behalf for last 3 months (separate each amount with a comma): ", 
+            "Name of non_clms:",                                                                    
+            "Select which fields should be included for income or expenses not derived from ordinary activities and not expected to recur frequently or regularly (Choose: Interest income, Dividend, Other revenue):"
         ]
 
-        self.inputs_df = pd.DataFrame({"Questions": question_list, 
-                                       "Answers": ""})
+        # 0
+        # NA
+        # 0,0,0
+        # 644.46,123.89, 6097.46
+        # Asia Corporate Jet Singapore Pte Ltd
+        # Other revenue
+
+        varname_list = ["dfr_unsecured_rlt_corporations", 
+                        "dfr_other_unsecured_loans", 
+                        "aa_off_bs_items", 
+                        "payment_on_behalf", 
+                        "non_clms", 
+                        "non_freq_income_exp"
+                        ]
+
+        self.user_inputs = pd.DataFrame({"Question": question_list, 
+                                       "Answer": ""}, index = varname_list)
         
-
-        self.inputs_df["Answers"] = self.inputs_df["Questions"].apply(input)
-        # self.inputs_df.set_index("Questions", inplace=True)
-
+        self.user_inputs["Answer"] = self.user_inputs["Question"].apply(input)
+        
+    
 #### (II) Financial Resources 
 
     def map_unsecured_rlt_corp(self):
-        varname = "dfr_unsecured_rlt_corporations"
 
-        unsecured_rlt_corp = float(self.inputs_df.at[0, "Answers"])
+        varname = "dfr_unsecured_rlt_corporations"
+        
+        answer = self.user_inputs.at["dfr_unsecured_rlt_corporations", "Answer"]
+        unsecured_rlt_corp = float(answer)
 
         # Map amt to Template  
         self.add_bal_to_template_by_varname(varname, unsecured_rlt_corp) 
@@ -320,16 +335,19 @@ class MASForm1_Generator:
         print(f" Mapped {varname} : {unsecured_rlt_corp}")   
 
     def map_other_unsecured_loans(self):
+
         varname = "dfr_other_unsecured_loans"
 
         tb_df = tb_class.get_data_by_fy(fy).copy()
 
-        if self.inputs_df.at[1, "Answers"] == "NA":
+        answer = self.user_inputs.at["dfr_other_unsecured_loans", "Answer"]
+
+        if answer == "NA":
             other_unsecured_loans = 0.0
             print(f"No other unsecured loans and advances accounts. The amount will be set to 0.00 {other_unsecured_loans}")
 
         else:
-            acc_no = self.inputs_df.at[1, "Answers"].split(",")
+            acc_no = answer.split(",")
             other_unsecured_loans = tb_df[tb_df["Account No"].isin(acc_no)]["Value"].sum()
 
         # Map amt to Template  
@@ -352,8 +370,9 @@ class MASForm1_Generator:
         
         deductions_df = self.outputdf.copy()
         deductions_df = deductions_df.loc[dfr_intangible_assets__row:fr_total_deductions_row]
+        # can consider using col name instead of number
         deductions_df = deductions_df.iloc[:, [0,1,2,3,-1]] #Header1-4, Balance column
-        
+
         month_end = fy_end_date.month
 
         self.col_name_3 = calendar.month_abbr[month_end] + '-'+ str(fy)[-2:] # e.g. Dec
@@ -368,7 +387,7 @@ class MASForm1_Generator:
 
         self.deductions_df = deductions_df
     
-    def map_tempdf_by_ls(self, acc_list, field_varname, type=None):
+    def _map_tempdf_by_ls(self, acc_list, field_varname, type=None):
         month_end, first_month, second_month, third_month = self.gl_ageing()
         deductions_df = self.deductions_df.copy()
         # print(deductions_df)
@@ -377,20 +396,16 @@ class MASForm1_Generator:
             oct = first_month[first_month["L/S"].isin(acc_list)]["Ending Balance"].sum()
             nov = second_month[second_month["L/S"].isin(acc_list)]["Ending Balance"].sum()
    
-
             indexrow = self.mapper_class.varname_to_index.at[field_varname]
 
             deductions_df.at[indexrow, self.col_name_1] = oct
             deductions_df.at[indexrow, self.col_name_2] = nov
 
-
-        
         elif type == "Prepayment": 
             prepay = first_month[first_month["L/S"].isin(acc_list)]
             oct = prepay[prepay["Name"].str.contains("(?i)pre")]["Ending Balance"].sum()
             prepay = second_month[second_month["L/S"].isin(acc_list)]
             nov = prepay[prepay["Name"].str.contains("(?i)pre")]["Ending Balance"].sum()
-
 
             indexrow = self.mapper_class.varname_to_index.at[field_varname]
 
@@ -399,14 +414,39 @@ class MASForm1_Generator:
 
             print(oct, nov)
 
+
+        elif type == "Cash":
+
+            depo = self.verify_credit_quality()
+            
+            accounts = depo[depo["Credit Quality Grade 1?"]=="Yes"]["Account No"].to_list()
+
+            # Get ending petty cash / cash in hand balance for 3 months
+            cash = first_month[first_month["L/S"].isin(acc_list)]
+            oct_cash = cash[cash["Name"].str.contains("(?i)cash")]["Ending Balance"].sum()
+            oct_depo = cash[cash["Account No"].isin(accounts)]["Ending Balance"].sum()
+
+            cash = second_month[second_month["L/S"].isin(acc_list)]
+            nov_cash = cash[cash["Name"].str.contains("(?i)cash")]["Ending Balance"].sum()
+            nov_depo = cash[cash["Account No"].isin(accounts)]["Ending Balance"].sum()
+
+            cash = third_month[third_month["L/S"].isin(acc_list)]
+            dec_cash = cash[cash["Name"].str.contains("(?i)cash")]["Ending Balance"].sum()
+            dec_depo = cash[cash["Account No"].isin(accounts)]["Ending Balance"].sum()
+
+            cash = [oct_cash,nov_cash,dec_cash]
+            depo = [oct_depo,nov_depo,dec_depo]
+
+            return cash,depo
+
         self.deductions_df = deductions_df
     
     def update_deductions_tempdf(self):
         # Map amounts from the relevant L/S to the correct field for each month
-        self.map_tempdf_by_ls([5700.1, 5700.1, 5800.1, 5800.2], "noncurrent_asset_goodwill_ia")
-        self.map_tempdf_by_ls([5850], "dfr_future_incometax_benefits")
-        self.map_tempdf_by_ls([5400.1,5200.2], "current_asset_other_prepayment", type="Prepayment")
-        self.map_tempdf_by_ls([5100.3, 5100.4, 5100.5], "dfr_capinvst_subsidiary_associate")
+        self._map_tempdf_by_ls([5700.1, 5700.1, 5800.1, 5800.2], "noncurrent_asset_goodwill_ia")
+        self._map_tempdf_by_ls([5850], "dfr_future_incometax_benefits")
+        self._map_tempdf_by_ls([5400.1,5200.2], "current_asset_other_prepayment", type="Prepayment")
+        self._map_tempdf_by_ls([5100.3, 5100.4, 5100.5], "dfr_capinvst_subsidiary_associate")
 
         # Get column total
         fr_total_deductions_varname = "fr_total_deductions"
@@ -418,7 +458,6 @@ class MASForm1_Generator:
         
         print(self.deductions_df)
         return self.deductions_df
-
 
     def map_financial_resources(self):
         # Base Capital or Net Head Funds
@@ -486,7 +525,129 @@ class MASForm1_Generator:
         self.awp = awp
 
         return self.awp
- 
+    
+    def f3_output_processing(self):
+        '''
+        process from Datahub 
+        '''
+        # Get F3 output from Datahub 
+        f3_fp = r"D:\gohjiawey\Desktop\Form 3\draft_MG - Copy.xlsx"
+        f3 = pd.read_excel(f3_fp, sheet_name=1)
+
+        # Combine Headers columns together
+        f3["Header 1"] = f3["Header 1"].fillna(f3["Header 2"])
+        f3["Header 1"] = f3["Header 1"].fillna(f3["Header 3"])
+        f3["Header 1"] = f3["Header 1"].fillna(f3["Header 4"])
+
+        # Pivot years 
+        f3_melt = f3.melt(id_vars=['Header 1', 'var_name'], value_vars=[self.fy-1 ,self.fy], var_name="FY", value_name="Amount")
+        
+        # Filter for 3 years
+        years = [self.fy-3, self.fy-2, self.fy-1]
+        f3_melt_filtered = f3_melt[f3_melt["FY"].isin(years)]
+
+        # Get template 
+        awp_template = pd.read_excel("D:\gohjiawey\Desktop\Form 3\CODES\luna\parameters\mas_forms_tb_mapping.xlsx", sheet_name= "Form 2 - AGI")
+        
+        # Split var_name to list 
+        awp_template = awp_template.rename(columns={"Unnamed: 1": str(self.fy-3), "Unnamed: 2": str(self.fy-2), "Unnamed: 3": str(self.fy-1)})
+        awp_template["var_name"] = awp_template["var_name"].apply(lambda x: [i.strip() for i in str(x).split(",")])
+        
+        # Overwrite var_name for income or expense not derived from ordinary activities based on manual input received
+        answer = self.user_inputs.at["non_freq_income_exp", "Answer"]
+        answer = answer.split(",")
+        varname_list = []
+        for i in answer:
+            if re.search("(?i)div", i):
+                varname_list.append("rev_dividend")
+            elif re.search("(?i)other rev", i):
+                varname_list.append("rev_other_revenue")
+            elif re.search("(?i)interest"):
+                varname_list.append("rev_int_others")
+        
+        required_varname_list = []
+        for index, row in awp_template.iterrows():
+            name = row['var_name']
+            for x in name: 
+                if x in varname_list:
+                    awp_template.at[index,"var_name"] = varname_list
+                if x != 'nan':
+                    required_varname_list.append(x)
+    
+        
+        # Filter for relevant var_name
+        data = f3_melt_filtered[f3_melt_filtered['var_name'].isin(required_varname_list)]
+        # Replace NaN values in the 'Amount' column with 0
+        data['Amount'].fillna(0.00, inplace=True)
+        # Filter away NaN in 'var_name' column
+        awp_template = awp_template[awp_template['var_name'].apply(lambda x: x != ['nan'])]
+
+
+        '''
+        Create a dataframe for each of the 3 years (e.g. 2021,2020,2019).
+        filtered_data frame is a list of dataframes. index 0 is empty. index 1 is fy-1, index 2 is fy-2 and so on
+        '''
+        column_names = data.columns.tolist()
+        filtered_data = ["",pd.DataFrame(columns=column_names),pd.DataFrame(columns=column_names),pd.DataFrame(columns=column_names)]
+
+        for index, row in data.iterrows():
+            if row['FY'] == self.fy-1:
+                filtered_data[1].loc[0] = row
+                filtered_data[1].index = filtered_data[1].index - 1
+            elif row['FY'] == self.fy-2:
+                filtered_data[2].loc[0] = row
+                filtered_data[2].index = filtered_data[2].index - 1
+            elif row['FY'] == self.fy-3:
+                filtered_data[3].loc[-1] = row
+                filtered_data[3].index = filtered_data[3].index - 1
+        
+        for i in range(len(filtered_data)):
+            if(i==0):
+                continue
+            filtered_data[i] = filtered_data[i].sort_index()
+
+
+
+        for year_index in range(len(filtered_data)):
+            if year_index ==0 :
+                continue
+            # Map to awp_template (maybe helper function for each self.fy)
+            awp_template.loc[:,str(self.fy-year_index)] = 0.00
+            for i, row_awp in awp_template.iterrows():
+                varname = row_awp["var_name"]
+                for index, row in filtered_data[year_index].iterrows():
+                    name = row["var_name"]
+                    amt = row["Amount"]
+                    if name in varname:
+                        print(name, varname)
+                        awp_template.at[i,str(self.fy-year_index)] += amt
+        
+        
+        # Create Adjusted annual gross income
+        awp_template = awp_template.reset_index(drop=True)
+        index_aagi = len(awp_template["var_name"])
+        awp_template.at[index_aagi,"Annual gross income ="] = "Adjusted Annual gross income"
+
+        for year_index in range(len(filtered_data)):
+            if(year_index==0):
+                continue    
+            rev_total_revenue_amt = 0
+            less_amt = 0
+            for i, row_awp in awp_template.iterrows():
+                if(i==index_aagi):
+                    continue
+                row_name = row_awp["Annual gross income ="] 
+                if(row_name == "- total revenue as per reported in respective year's Form 3 ** (previously Form 6)"):
+                    print("HELLO")
+                    print(awp_template.loc[i, str(self.fy-year_index)])
+                    rev_total_revenue_amt = awp_template.loc[i, str(self.fy-year_index)]
+                else:
+                    less_amt += awp_template.loc[i, str(self.fy-year_index)]
+            adjusted_annual_gross_income = rev_total_revenue_amt - less_amt
+            awp_template.loc[index_aagi, str(self.fy-year_index)] = adjusted_annual_gross_income
+        
+        self.awp = awp_template
+
     def map_operational_rr(self):
 
         # Get Average annual gross income from preceding 3 years
@@ -600,6 +761,29 @@ class MASForm1_Generator:
 
         self.aa_df = aa_df
 
+    def verify_credit_quality(self):
+        
+        tb_df = tb_class.get_data_by_fy(fy).copy()
+        
+        interval_list = [pd.Interval(5000,5000,closed = "both")]
+        cash = tb_df[tb_df["L/S (interval)"].apply(lambda x:x in interval_list)]
+
+        depo = cash[~cash["Name"].str.contains("(?i)cash")]
+        
+        new_cols = depo.columns.to_list() + ["Credit Quality Grade 1?"]
+        
+        depo = depo.reindex(columns=new_cols)
+        print("HELLO")
+        print(depo)
+        
+        print("Please tag if the following deposits are credit quality grade 1")
+        
+        depo.to_excel("Credit Quality.xlsx")
+        dropdownlist = CreditDropdownList("Credit Quality.xlsx")
+        depo = dropdownlist.create_dropdown_list()
+
+        return depo
+   
     def map_aa_df(self):
         month_end, first_month, second_month, third_month = self.gl_ageing()
         aa_df = self.aa_df.copy()
@@ -617,6 +801,8 @@ class MASForm1_Generator:
         nov = second_month[second_month["L/S"]<6000]["Ending Balance"].sum()
         oct = first_month[first_month["L/S"]<6000]["Ending Balance"].sum()
 
+        # pd.Interval(5000,6000, closed='left')
+
         on_balance_assets_varname = "total_asset"
         on_balance_assets_row = self.mapper_class.varname_to_index.at[on_balance_assets_varname]
 
@@ -628,7 +814,8 @@ class MASForm1_Generator:
 
         # Off balance sheet items 
         # Manual input
-        off_bal = self.inputs_df.at[2,"Answers"].split(",")
+        answer  =  self.user_inputs.at["aa_off_bs_items", "Answer"]
+        off_bal = answer.split(",")
 
         off_balance_assets_varname = "aa_off_bs_items"
         off_balance_assets_row = self.mapper_class.varname_to_index.at[off_balance_assets_varname]
@@ -651,14 +838,26 @@ class MASForm1_Generator:
         aa_df.loc[aa_fr_total_deductions_row, aa_df.columns[-3:]] = total_deductions
 
 
-        #  Cash and Deposit credit quality grade 1
-        #  Skipped due to data validation 
+        # Cash and Deposit credit quality grade 1
+
+        cash, depo = self._map_tempdf_by_ls([5000], "cash", type="Cash")
+
+        aa_corp_own_cash_cashequiv_varname = "aa_corp_own_cash_cashequiv"
+        aa_corp_own_cash_cashequiv_row = self.mapper_class.varname_to_index.at[ aa_corp_own_cash_cashequiv_varname]
+        
+        aa_df.loc[aa_corp_own_cash_cashequiv_row, aa_df.columns[-3:]] = cash
+
+        aa_corp_own_deposit_bank_credit_quality_1_varname = "aa_corp_own_deposit_bank_credit_quality_1"
+        aa_corp_own_deposit_bank_credit_quality_1_row = self.mapper_class.varname_to_index.at[aa_corp_own_deposit_bank_credit_quality_1_varname]
+
+        aa_df.loc[aa_corp_own_deposit_bank_credit_quality_1_row, aa_df.columns[-3:]] = depo
 
         # Set values in aa_df to numeric 
         aa_df = aa_df.apply(pd.to_numeric, errors='ignore') 
         print(aa_df)
 
         self.aa_df = aa_df
+
 
 #### AR processing for fees_receivables 
     def arprocessing(self, aged_receivables_fp, sheet_name):
@@ -685,7 +884,8 @@ class MASForm1_Generator:
         firstmonth = self.arprocessing(aged_receivables_fp, sheet_name = 2)
 
         # This company is non-CLMS, so need to remove from the computation
-        non_clms = ["Asia Corporate Jet Singapore Pte Ltd"]
+        answer = self.user_inputs.at["non_clms", "Answer"]
+        non_clms = answer.split(",")
 
         # Filter away/remove non_clms for each month 
         thirdmonth_amt = thirdmonth[~thirdmonth.index.isin(non_clms)]["0-90"].sum()     #1660896.34
@@ -697,7 +897,8 @@ class MASForm1_Generator:
         print(type(amt_list[0]))
 
         # Less payment on behalf 
-        paymt_behalf = self.inputs_df.at[3,"Answers"].split(",") 
+        answer = self.user_inputs.at["payment_on_behalf", "Answer"]
+        paymt_behalf = answer.split(",") 
 
         print(paymt_behalf)
         print(type(paymt_behalf))
@@ -713,7 +914,7 @@ class MASForm1_Generator:
 
         for i, amt in enumerate(amt_list):
             self.aa_df.loc[fees_receivables_row, self.aa_df.columns[-3 + i]] += amt
-        
+    
         print(self.aa_df)
     
     def update_adjusted_asset_tempdf(self):
@@ -759,7 +960,6 @@ class MASForm1_Generator:
 
         print(avg_adj_asset)
         print(self.aa_df) 
-
 
     def map_adjusted_asset(self):
 
@@ -808,7 +1008,6 @@ class MASForm1_Generator:
         # to delete
         print(f" Mapped {aa_adjusted_assets_threshold_varname} : {threshold}") 
 
-
     def column_mapper(self):
 
         # Map the Balance amounts to the correct field in F1; whether in the Amount or Subtotal column
@@ -841,11 +1040,11 @@ class MASForm1_Generator:
                 self.outputdf.at[i, "Subtotal"] = self.outputdf.at[i, "Balance"]  # if both Amount and Subtotal is empty 
 
 
-#### Output for auditors
+
+#### Output for auditors (AAA)
     def output_excel(self):
         
-        template_fp = "D:\gohjiawey\Desktop\Average Adjusted Assets Template.xlsx"
-        #template_fp = "P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\Average Adjusted Assets Template.xlsx"
+        template_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\Average Adjusted Assets Template.xlsx"
         
         aa_df = self.aa_df.copy()
 
@@ -909,14 +1108,13 @@ class MASForm1_Generator:
 
 
         # Sum (a) to (iv) to get Adjusted asset 
-        for col in range(7,10):
-            formulas = "=SUM({}{}:{}{})".format(get_column_letter(col-3),
+        for col in range(4,7):
+            formulas = "=SUM({}{}:{}{})".format(get_column_letter(col),
                                                 9,
-                                                get_column_letter(col-3),
-                                                20, get_column_letter(col-2),
+                                                get_column_letter(col),
                                                 20
                                                 )
-            sheet.cell(row= 21 , column= col-3).value = formulas
+            sheet.cell(row= 21 , column= col).value = formulas
 
         # Average adjusted asset 
         sheet['I21'] = "=AVERAGE(D21:F21)"
@@ -939,9 +1137,155 @@ class MASForm1_Generator:
         
         wb.save("updated_workbook.xlsx")
 
+#### Output for auditors (TRR)
+    def output_excel_trr(self):
+        template_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\TRR.xlsx"
+
+         # To open the workbook 
+        # workbook object is created
+        wb = openpyxl.load_workbook(template_fp)
+        
+        # Get workbook active sheet object
+        sheet = wb.active
+
+        # Retrieve from datahub (need current year)
+        datahub = pd.read_excel("D:\gohjiawey\Desktop\Form 3\draftf2 - Copy.xlsx")
+        datahub_currentfy = datahub[datahub['FY'] == self.fy]
+
+    ###For current year
+
+        # Base capital (row 8,9,10)        
+        puc_list  = ["puc_ord_shares", "puc_pref_share_noncumulative", "puc_reserve_fund"]
+
+        for i, row in enumerate(datahub_currentfy["var_name"]): 
+            if row in (puc_list):
+                value = datahub_currentfy.at[i, "Balance"]
+                sheet["I"+ str(i+6)] = value #row 8,9,10
+
+        # unappropriated profit or loss
+        puc_unappr_profit_or_loss = datahub_currentfy.at[5, "Balance"]
+        sheet["I12"] =  puc_unappr_profit_or_loss
+        print(puc_unappr_profit_or_loss)
+
+        # dividend declared, interim loss 
+        puc_less_list = ["upl_div_declared", "upl_interim_loss"]
+        for i, row in enumerate(datahub_currentfy["var_name"]): 
+            if row in (puc_less_list):
+                value = datahub_currentfy.at[i, "Balance"]
+                sheet["I"+ str(i+8)] = value  #row 14,15
+
+        # Net head office funds 
+        puc_net_head_office_funds = datahub_currentfy.at[9, "Balance"]
+        sheet["I17"] = puc_net_head_office_funds
+        print(puc_net_head_office_funds)
+
+        # Base Capital/Net Head Office Funds 
+        sheet["I19"] =  "=SUM(I8:I17)"
+
+        # Financial Resources 
+        fr_add_list = ["puc_pref_share_cumulative", "current_liab_redeemable_pref_share, noncurrent_liab_redeemable_pref_share", 
+         "bc_qual_subord_loans_temp", "puc_rev_reserve", "puc_other_reserves","bc_interim_unappr_profit",
+         "bc_cltv_impairment_allowance"]
+        
+        for i, row in enumerate(datahub_currentfy["var_name"]):
+            if row in (fr_add_list):
+                value = datahub_currentfy.at[i, "Balance"]
+                sheet["I"+ str(i+7)] = value #row 22 to 28
+
+        
+        fr_less_list = [ "noncurrent_asset_goodwill_ia", "dfr_future_incometax_benefits", "current_asset_other_prepayment", 
+                "dfr_charged_assets", "dfr_unsecured_directors_cnntpersons", "dfr_unsecured_rlt_corporations",
+                "dfr_other_unsecured_loans", "dfr_capinvst_subsidiary_associate", "noncurrent_asset_investment_in_subsi", 
+                "dfr_other_assets_nonconvertible_cash"]
+
+                     
+        for i, row in enumerate(datahub_currentfy["var_name"]):
+            if row in (fr_less_list):
+                value = datahub_currentfy.at[i, "Balance"]
+                sheet["I"+ str(i+5)] = -value #set to negative for less   #row 29 to 38 
+
+        # Total Financial Resources ("FR")
+        sheet["I40"] = "=SUM(I19:I38)"
+        
+        # ORR Highest of:
+        sheet["I48"] = "=MAX(F50,F53)"
+
+        # 5% of average annual gross income..
+        sheet["F50"] = "=SUM(E92:E94)"
+
+        # Total Risk Requirement ("TRR")
+        sheet["I66"] = "=I48+I64"
+
+        # Ratio: Financial Resources / Total Risk Requirement ("FR/TRR")
+        sheet["I71"] = "=I40/I66"
+                
+
+    ###For last 3 years
+        # Retrieve from datahub 
+        datahub_form3 = pd.read_excel("D:\gohjiawey\Desktop\Form 3\draft - Copy.xlsx")
+        
+        datahub_form3_current = datahub_form3[datahub_form3["FY"] == self.fy]
+
+        required_varname_list = ["rev_total_revenue",
+                                "exp_fee_expense", 
+                                 "exp_comm_expense_otherbroker", 
+                                 "exp_comm_expense_agents", 
+                                 "exp_int_expense",
+                                 "rev_int_others", 
+                                 "rev_dividend", 
+                                 "rev_other_revenue" 
+                                 ]
+
+        varname_dict = {}
+        for i, row in enumerate(datahub_form3_current["var_name"]):
+            if row in (required_varname_list):
+                value = datahub_form3_current.at[i, "Balance"]
+                varname_dict[row] = value
+
+        # Total Revenue        
+        sheet["E78"] = varname_dict.get("rev_total_revenue", 0)
+        
+        # Fees expense 
+        sheet["E79"] = varname_dict.get("exp_fee_expense", 0)
+
+        # Commission expense 
+        agents = varname_dict.get('exp_comm_expense_agents', 0)  # Default to 0 if key not present
+        otherbroker = varname_dict.get('exp_comm_expense_otherbroker', 0)  # Default to 0 if key not present
+        sheet["E80"] = agents + otherbroker
+        
+        # Interest expense 
+        sheet["E81"] = varname_dict.get("exp_int_expense", 0)
 
 
+        # Adjusted annual gross income 
+        for col in range(3,6):
+            formulas = "=SUM({}{}:{}{})".format(get_column_letter(col),
+                                            78,
+                                            get_column_letter(col),
+                                            85
+                                            )
+            sheet.cell(row= 86 , column= col).value = formulas
+            
 
+        # Average annual gross income 
+        sheet["E88"] = "=AVERAGE(C86,D86,E86)"
+
+        # seperated into amts < S$10,000,000
+        sheet["E89"] = "=MIN(E88,10000000)"
+
+        # seperated into amts > S$10,000,000
+        sheet["E90"] = "=MAX(0,E88-10000000)"
+
+        # 5% average annual gross below S$10m
+        sheet["E92"] = "=E89*0.05"
+
+        # 2% of average annual gross income above S$10m
+        sheet["E94"] = "=E90*0.02"
+
+        # Save the workbook
+        wb.save("updated_trr.xlsx")
+        
+        
 if __name__ == "__main__":
 
     # Get the luna folderpath 
@@ -1018,13 +1362,13 @@ if __name__ == "__main__":
     # CLASS
     fy=2022
     self = MASForm1_Generator(tb_class,
-                              mapper_class, gl_class, fy=fy, )
+                              mapper_class, gl_class, fy=fy)
     
     # Get df by varname
     # filtered_tb = self.filter_tb_by_varname('current_asset_trade_debt_other')
     
     # Output to excel 
     self.outputdf.to_excel("draftf2.xlsx") 
-    
+
 
     
