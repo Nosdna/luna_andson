@@ -6,6 +6,7 @@ import os
 import datetime
 import luna.lunahub as lunahub
 import luna.lunahub.tables as tables
+import luna.common.misc as misc
 import numpy as np
 
 AGED_AR_TO_LUNAHUB_MAPPER = {
@@ -22,6 +23,8 @@ AGED_AR_TO_LUNAHUB_MAPPER = {
 
 
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
+
+
 
 def convert_aged_ar_to_lunahub_format(df):
     '''
@@ -106,6 +109,9 @@ class AgedReceivablesReader_Format1:
         # Read and process data
         self.read_data_from_file()
         self.process_data()
+        
+        query_class = AgedReceivables_QueryClass(self.df_processed_long_lcy)
+        self.get_AR_by_new_groups = query_class.get_AR_by_new_groups        
         
         # Load to lunahub if required
         if self.insert_to_lunahub:
@@ -230,30 +236,8 @@ class AgedReceivablesReader_Format1:
         
         bin_columns = self.bin_columns
         
-        bin_order = pd.Series(range(1, len(bin_columns)+1), index=bin_columns,
-                              name = "Order")
-        bin_df = bin_order.to_frame()
+        bin_df = misc.convert_binstrs_to_bin_df(bin_columns)
         
-        # create intervals
-        bin_df["Interval"] = None
-        for bin_str in bin_df.index:
-            if "-" in bin_str:
-                l, r = bin_str.split("-")
-                l = l.strip()
-                r = r.strip()
-                interval = pd.Interval(int(l), int(r), closed='both')
-            elif bin_str.endswith("+"):
-                l = bin_str[:-1]
-                interval = pd.Interval(int(l), np.inf, closed='left')
-            else:
-                raise Exception (f"Unexpected bin: {bin_str}.")
-            
-            bin_df.at[bin_str, "Interval"] = interval
-            
-        #
-        bin_df["lbound"] = bin_df["Interval"].apply(lambda i: i.left)
-        bin_df["rbound"] = bin_df["Interval"].apply(lambda i: i.right)
-                
         self.bin_df = bin_df.copy()
         
         return bin_df
@@ -302,63 +286,6 @@ class AgedReceivablesReader_Format1:
         df_long = df_long.reset_index(drop=True)
         
         self.df_processed_long = df_long.copy()
-        
-
-    
-    def _split_AR_to_new_groups(self, group_dict):
-        '''
-        cutoff must lie exactly on one of the interval, as otherwise
-        we won't know where to cutoff
-        
-        for e.g. if there is a $100 at bin 0-30, if the cutoff is 15,
-        we won't be able to stratify it.
-        
-        group_dict = dict of new group name: list of the original bins (str)
-        '''
-        
-        # regroup name
-        name = " vs ".join(group_dict.keys())
-        
-        if not hasattr(self, 'regrouped_dict'):
-            
-            self.regrouped_dict = {}
-        
-        if name not in self.regrouped_dict:
-                        
-            # Get attr
-            df_processed_long_lcy = self.df_processed_long_lcy.copy()
-            bin_df = self.bin_df.copy()
-            
-            # Verify that there is no duplicates
-            specified_bins = [b for n in group_dict for b in group_dict[n]]
-            pyeasylib.assert_no_duplicates(specified_bins)
-            
-            # Verify all bins are specified
-            missing_bins = set(bin_df.index).difference(specified_bins)
-            if len(missing_bins) > 0:
-                raise Exception (
-                    f"Missing bin(s): {list(missing_bins)}.\n\n"
-                    f"Please include the bin(s) into the groups correctly: "
-                    f"{list(group_dict.keys())}.")
-            
-            # create a mapper and add a new group column
-            mapper_series = pd.Series([n for n in group_dict for b in group_dict[n]],
-                                      index = specified_bins)
-            df_processed_long_lcy["Group"] = mapper_series.reindex(
-                df_processed_long_lcy["Interval (str)"]).values
-            
-            # save the data
-            self.regrouped_dict[name] = df_processed_long_lcy.copy()
-            
-        return self.regrouped_dict[name]
-
-    def get_AR_by_new_groups(self, group_dict):
-        
-        df = self._split_AR_to_new_groups(group_dict)
-        
-        # Value is in foreign currency. only make sense if it's lcy
-        return df.pivot_table(
-            "Value (LCY)", index="Name", columns="Group", aggfunc="sum")
         
                     
 class AgedReceivablesUploader_To_LunaHub(LunaHubBaseUploader):
@@ -464,6 +391,10 @@ class AgedReceivablesLoader_From_LunaHub:
         
         self.read_data()
         self.process()
+        
+        # Load the query class
+        query_class = AgedReceivables_QueryClass(self.df_processed_long_lcy)
+        self.get_AR_by_new_groups = query_class.get_AR_by_new_groups        
 
     def read_data(self):
         
@@ -472,7 +403,7 @@ class AgedReceivablesLoader_From_LunaHub:
         # Check client
         is_client = df0["CLIENTNUMBER"] == self.client_number
         if not is_client.any():
-            raise Exception ("Data not found for client_number={self.client_number}.")
+            raise Exception (f"Data not found for client_number={self.client_number}.")
         
         # Check FY
         is_fy = df0["FY"] == self.fy
@@ -537,9 +468,73 @@ class AgedReceivablesLoader_From_LunaHub:
         cols = cols + [c for c in df.columns if c not in cols]
     
         df = df[cols]
+        self.df = df.copy()
         
-        self.df = df
+        # final filter
+        required_columns = [
+            'Name', 'Currency', 'Conversion Factor', 
+            'Interval (str)', 'Interval',
+            'Value (FCY)', 'Value (LCY)']
+        df = df[required_columns]
         
+        self.df_processed_long_lcy = df.copy()
+        
+
+class AgedReceivables_QueryClass:
+    
+    def __init__(self, df_processed_long_lcy):
+        
+        self.df_processed_long_lcy = df_processed_long_lcy.copy()
+        
+        # convert bin str to bin df
+        self.bin_df = misc.convert_binstrs_to_bin_df(
+            self.df_processed_long_lcy["Interval (str)"]
+            )
+        
+
+    def _split_AR_to_new_groups(self, group_dict):
+        '''
+        cutoff must lie exactly on one of the interval, as otherwise
+        we won't know where to cutoff
+        
+        for e.g. if there is a $100 at bin 0-30, if the cutoff is 15,
+        we won't be able to stratify it.
+        
+        group_dict = dict of new group name: list of the original bins (str)
+        '''
+
+        # Get attr
+        df_processed_long_lcy = self.df_processed_long_lcy.copy()
+        bin_df = self.bin_df.copy()
+        
+        # Verify that there is no duplicates
+        specified_bins = [b for n in group_dict for b in group_dict[n]]
+        pyeasylib.assert_no_duplicates(specified_bins)
+        
+        # Verify all bins are specified
+        missing_bins = set(bin_df.index).difference(specified_bins)
+        if len(missing_bins) > 0:
+            raise Exception (
+                f"Missing bin(s): {list(missing_bins)}.\n\n"
+                f"Please include the bin(s) into the groups correctly: "
+                f"{list(group_dict.keys())}.")
+        
+        # create a mapper and add a new group column
+        mapper_series = pd.Series([n for n in group_dict for b in group_dict[n]],
+                                  index = specified_bins)
+        df_processed_long_lcy["Group"] = mapper_series.reindex(
+            df_processed_long_lcy["Interval (str)"]).values
+            
+        return df_processed_long_lcy
+
+    def get_AR_by_new_groups(self, group_dict):
+        
+        df = self._split_AR_to_new_groups(group_dict)
+        
+        # Value is in foreign currency. only make sense if it's lcy
+        return df.pivot_table(
+            "Value (LCY)", index="Name", columns="Group", aggfunc="sum",
+            fill_value = 0)
     
         
 if __name__ == "__main__":
@@ -569,7 +564,7 @@ if __name__ == "__main__":
             fy_end_date = pd.to_datetime("31 Jan 2020"),
             client_number = 1,
             client_name = "ABC PTE LTD",
-            variance_threshold=variance_threshold,insert_to_lunahub=True)
+            variance_threshold=variance_threshold,insert_to_lunahub=False)
         
         # Run main -> this process all the data
         self.main()
@@ -586,12 +581,18 @@ if __name__ == "__main__":
         ar_by_new_grouping = self.get_AR_by_new_groups(group_dict)
         
     
+        # Test the query class
+        if False:
+            self2 = self
+            self = AgedReceivables_QueryClass(self.df_processed_long_lcy)
+            
+    
     # Tester to extract
     if True:
         
-        client_number = 1
+        client_number = 7167
         fy = 2022
-        uploaddatetime = '2023-12-08 18:39:03.533'
+        uploaddatetime = None #'2023-12-08 18:39:03.533'
         lunahub_obj = None
         
         self = AgedReceivablesLoader_From_LunaHub(client_number, fy, 
