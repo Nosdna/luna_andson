@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils import column_index_from_string
 
 class CreditDropdownList:
-    ROW = "H2:H1048576"
+    ROW = "K2:K1048576"
     
     def __init__(self, filepath):
           self.filepath = filepath
