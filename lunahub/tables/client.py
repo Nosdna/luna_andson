@@ -4,8 +4,9 @@ import os
 import datetime
 
 # class to upload client data
+LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
-class ClientInfoUploader_To_LunaHub:
+class ClientInfoUploader_To_LunaHub(LunaHubBaseUploader):
     
     def __init__(self, 
                  client_number, client_name, fy_end_date, 
@@ -25,31 +26,25 @@ class ClientInfoUploader_To_LunaHub:
             4) See (3), but data will be uploaded when force_insert=True.
         '''
         
-        
-        
         # Save as attribute
         self.client_number = int(client_number)
         self.client_name   = client_name
         self.fy_end_date   = fy_end_date
         self.force_insert  = force_insert
-        self.uploader      = uploader
-        self.uploaddatetime = uploaddatetime
-        self.lunahub_obj   = lunahub_obj
-        
-        if self.uploader is None:
-            self.uploader = os.getlogin()
-        
-        if self.uploaddatetime is None:
-            self.uploaddatetime = datetime.datetime.now()
-               
-        if self.lunahub_obj is None:
-            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
-            
+
+        # Init parent class        
+        LunaHubBaseUploader.__init__(self,
+                                     lunahub_obj    = lunahub_obj,
+                                     uploader       = uploader,
+                                     uploaddatetime = uploaddatetime,
+                                     lunahub_config = None)
+
     def main(self):
         
         self.process_data()
         
         self.upload_data()
+        
         
     def process_data(self):
                 
@@ -61,8 +56,12 @@ class ClientInfoUploader_To_LunaHub:
         self.fy_end_day      = self.fy_end_date.day
         self.fy_end_month    = self.fy_end_date.month
         
-    def upload_data(self):
         
+    def upload_data(self):
+        '''
+        This method will do a check before we upload the data to 
+        the SQL server.
+        '''
         def insert():
             
             # Prepare df
@@ -80,12 +79,11 @@ class ClientInfoUploader_To_LunaHub:
         # Get current data
         df = self.lunahub_obj.read_table("client")
         
-        # Get for current client
+        # Check if the data for this client is already present.
         existing = df[df["CLIENTNUMBER"] == self.client_number]
         
         if existing.shape[0] == 0:
-            
-            # Insert
+            # Not found in db -> Insert
             insert()
         
         else:
