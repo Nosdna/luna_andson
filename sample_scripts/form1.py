@@ -361,9 +361,7 @@ class MASForm1_Generator:
         """
         varname = "current_asset_trade_debt_fund_mgmt"
 
-        self.filter_tb_by_varname(varname)
-
-        ar = self.aged_ar_class.df_processed_lcy[["Name", "Total Due"]]
+        ar = self.aged_ar_class.df_processed_long_lcy[["Name", "Value (LCY)"]]
         
         # Convert input string to list and strip the leading/trailing spaces
         answer = self.user_inputs.at["trade_debt_fund_mgmt", "Answer"]
@@ -378,7 +376,7 @@ class MASForm1_Generator:
         # Filter for matches and obtain the sum of Total Due
         fundmgmt_df = ar.query("`Matched?`==True")
 
-        fundmgmt_debtors = fundmgmt_df["Total Due"].sum()
+        fundmgmt_debtors = fundmgmt_df["Value (LCY)"].sum()
 
         self.add_bal_to_template_by_varname(varname, fundmgmt_debtors)
 
@@ -751,7 +749,7 @@ if __name__ == "__main__":
     template_folderpath = os.path.join(luna_folderpath, "templates")
     
     # AGED RECEIVABLES
-    if True:
+    if False:
         # aged_receivables_fp = os.path.join(template_folderpath, "aged_receivables.xlsx")
         aged_receivables_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
         print (f"Your aged_receivables_fp is at {aged_receivables_fp}.")
@@ -760,6 +758,7 @@ if __name__ == "__main__":
         aged_ar_class = common.AgedReceivablesReader_Format1(aged_receivables_fp, 
                                                         sheet_name = 0,            # Set the sheet name
                                                         variance_threshold = 0.1) # 1E-9) # To relax criteria if required.
+        aged_ar_class.main()
         
         aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
                            ">90": ["91 - 120", "121 - 150", "150+"]}
@@ -768,7 +767,7 @@ if __name__ == "__main__":
         aged_df_by_company = aged_ar_class.get_AR_by_new_groups(aged_group_dict)
         
     # TB
-    if True:
+    if False:
         # tb_fp = os.path.join(template_folderpath, "tb.xlsx")
         mg = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\Myer Gold Investment Management - 2022 TB.xlsx"
         ci = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
@@ -821,7 +820,21 @@ if __name__ == "__main__":
 
     if True:
     # CLASS
-        fy=2022
+        
+
+        ## MG
+        client_number = 7167
+        client_name = "MYER GOLD INVESTMENT MANAGEMENT PTE. LTD."
+        fy_end_date = pd.to_datetime('31 Dec 2022')
+        fy = fy_end_date.year
+        
+        
+        # Load tb class from LunaHub
+        tb_class = common.TBLoader_From_LunaHub(client_number, fy)
+        
+        # Load aged ar class
+        aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
+        
 
         self = MASForm1_Generator(tb_class, aged_ar_class,
                                 mapper_class, fy=fy, fuzzy_match_threshold=80, user_inputs=user_inputs)

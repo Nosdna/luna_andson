@@ -103,6 +103,7 @@ class AgedReceivablesReader_Format1:
         self.client_name = client_name
         self.variance_threshold = variance_threshold
         self.insert_to_lunahub = insert_to_lunahub
+        
                 
     def main(self):
         
