@@ -9,15 +9,18 @@ import luna.lunahub as lunahub
 import luna.lunahub.tables as tables
 import datetime
 
+LunaHubBaseUploader = lunahub.LunaHubBaseUploader
+
+
 class TBReader_ExcelFormat1:
     
     REQUIRED_HEADERS = ["Account No", "Name", "L/S", "Class"] 
     
     def __init__(self, 
                  fp, sheet_name = 0, fy_end_date = None,
-                 client_number = None,
-                 client_name = None,
-                 insert_to_lunahub = False):
+                 client_number      = None,
+                 client_name        = None,
+                 insert_to_lunahub  = False):
         '''
         Class to read TB from Excel file.
         
@@ -57,7 +60,6 @@ class TBReader_ExcelFormat1:
             
             self.load_to_lunahub(client_number = self.client_number, 
                                  client_name = self.client_name)
-        
         
         ####################################################################
         # TO make this consistent across all tb classes
@@ -206,15 +208,7 @@ class TBReader_ExcelFormat1:
         df_processed_long["Completed FY?"] = df_processed_long["Date"].map(date_val_to_completeness)
         
         return df_processed_long.copy(), fy_class
-    
-    def _connect_to_lunahub(self):
-        
-        if not hasattr(self, 'lunahub_obj'):
-            
-            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
-            
-        return self.lunahub_obj
-    
+       
     def load_to_lunahub(self, client_number = None, client_name = None):
         
         # Check that we have clientno
@@ -233,56 +227,97 @@ class TBReader_ExcelFormat1:
             raise Exception ("Client name must be provided during "
                              "initialisation or when calling this method.")
         
+        # Upload
+        self.tb_uploader_class = TBUploader_To_LunaHub(
+            self.df_processed_long,
+            clientno,
+            name,
+            fy_end_date = self.fy_end_date,
+            uploader = None,
+            uploaddatetime = None,
+            lunahub_obj = None)
+        self.tb_uploader_class.main()
+        
+        
+        
+
+class TBUploader_To_LunaHub(LunaHubBaseUploader):
+    
+    def __init__(self,
+                 df_processed_long,
+                 client_number,
+                 client_name,
+                 fy_end_date,
+                 uploader = None,
+                 uploaddatetime = None,
+                 lunahub_obj = None):
+
+        self.df_processed_long      = df_processed_long.copy()
+        self.client_number          = client_number
+        self.client_name            = client_name
+        self.fy_end_date            = fy_end_date
+        
+        # check that client number, client name, fy end date cannot be None
+        # Will be checked in the ClientInfoUploader_To_LunaHub class.
+        
+        # Init parent class        
+        LunaHubBaseUploader.__init__(self,
+                                     lunahub_obj    = lunahub_obj,
+                                     uploader       = uploader,
+                                     uploaddatetime = uploaddatetime,
+                                     lunahub_config = None)
+    
+    def main(self):
+        
+        self.upload_client_info()
+        self.upload_tb()
+    
+    def upload_client_info(self):
+        
+        # load client table
+        client_uploader = tables.client.ClientInfoUploader_To_LunaHub(
+            self.client_number, self.client_name, self.fy_end_date, 
+            uploader = self.uploader, uploaddatetime = self.uploaddatetime,
+            lunahub_obj = self.lunahub_obj,
+            force_insert = False
+            )
+        
+        # main
+        client_uploader.main()
+        
+    def upload_tb(self):
+        
         # Make a copy
         df = self.df_processed_long.copy()
         
         # Get filter and convert to Lunahub format
         column_mapper = {
-            "Account No": "ACCOUNTNUMBER",
-            "Name"      : "ACCOUNTNAME",
-            "L/S"       : "LSCODE",
-            "Class"     : "CLASS",
-            "Date"      : "DATE",
-            "Value"     : "VALUE",
-            "FY"        : "FY",
+            "Account No"    : "ACCOUNTNUMBER",
+            "Name"          : "ACCOUNTNAME",
+            "L/S"           : "LSCODE",
+            "Class"         : "CLASS",
+            "Date"          : "DATE",
+            "Value"         : "VALUE",
+            "FY"            : "FY",
             "Completed FY?" : "COMPLETEDFY"
             }
         
         df = df[list(column_mapper.keys())].rename(columns=column_mapper)
-                    
-        # meta
-        uploader = os.getlogin().lower()
-        uploaddatetime = datetime.datetime.now()
-        
+                            
         # Set remaining columns
-        df["CLIENTNUMBER"] = clientno
-        df["UPLOADER"] = uploader
-        df["UPLOADDATETIME"] =uploaddatetime
-        df["COMMENTS"] = None
-        
-        # Connect to lunahub
-        lunahub_obj = self._connect_to_lunahub()
-        
+        df["CLIENTNUMBER"]      = self.client_number
+        df["UPLOADER"]          = self.uploader
+        df["UPLOADDATETIME"]    = self.uploaddatetime
+        df["COMMENTS"]          = None
+               
         # --------------------------------------------------
         # load tb table
-        lunahub_obj.insert_dataframe('tb', df)
+        self.lunahub_obj.insert_dataframe('tb', df)
         #-------------------------------------------------------
         
-                
-        # --------------------------------------------------
-        # load client table
-        client_uploader = tables.client.ClientInfoUploader_To_LunaHub(
-            clientno, name, self.fy_end_date, 
-            uploader = None, uploaddatetime = None,
-            lunahub_obj = lunahub_obj,
-            force_insert = False
-            )
-        client_uploader.main()
-
-        #-------------------------------------------------------
 
 
-class TBReader_LunaHub:
+class TBLoader_From_LunaHub:
     
     def __init__(self, client_number, fy, uploaddatetime=None):
         '''
@@ -433,7 +468,7 @@ class TBQueryClass:
 if __name__ == "__main__":
     
     # Test ExcelFormat reader
-    if False:
+    if True:
         # Specify the param fp    
         dirname = os.path.dirname
         luna_fp = dirname(dirname(__file__))
@@ -453,6 +488,10 @@ if __name__ == "__main__":
         
         df_processed_long = self.df_processed_long
         
+        
+
+        
+        assert False
         
         # Test interval list
         interval_list = [
@@ -483,4 +522,4 @@ if __name__ == "__main__":
         client_number = 7167
         fy            = 2022
         
-        self = TBReader_LunaHub(client_number, fy)
+        self = TBLoader_From_LunaHub(client_number, fy)
