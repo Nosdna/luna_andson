@@ -840,7 +840,7 @@ class MASForm1_Generator:
 
         # Cash and Deposit credit quality grade 1
 
-        cash, depo = self._map_tempdf_by_ls([5000], "cash", type="Cash")
+        cash, depo = self._map_tempdf_by_ls(["5000"], "cash", type="Cash")
 
         aa_corp_own_cash_cashequiv_varname = "aa_corp_own_cash_cashequiv"
         aa_corp_own_cash_cashequiv_row = self.mapper_class.varname_to_index.at[ aa_corp_own_cash_cashequiv_varname]
