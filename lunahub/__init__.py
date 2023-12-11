@@ -4,6 +4,7 @@ import luna
 from luna import settings
 
 from luna.lunahub.connection import LunaHubConnector
+from luna.lunahub.connection import LunaHubBaseUploader
 
 if True:
     # Get the config fp from luna\settings.py
