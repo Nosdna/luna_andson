@@ -20,6 +20,9 @@ AGED_AR_TO_LUNAHUB_MAPPER = {
     "Date"              : "DATE"
     }
 
+
+LunaHubBaseUploader = lunahub.LunaHubBaseUploader
+
 def convert_aged_ar_to_lunahub_format(df):
     '''
     df is long format with the following columns:
@@ -358,7 +361,7 @@ class AgedReceivablesReader_Format1:
             "Value (LCY)", index="Name", columns="Group", aggfunc="sum")
         
                     
-class AgedReceivablesUploader_To_LunaHub:
+class AgedReceivablesUploader_To_LunaHub(LunaHubBaseUploader):
     
     def __init__(self,
                  df_processed_long_lcy, 
@@ -381,18 +384,14 @@ class AgedReceivablesUploader_To_LunaHub:
         self.fy_end_date           = fy_end_date
         self.client_number         = client_number
         self.client_name           = client_name
-        self.uploader              = uploader
-        self.uploaddatetime        = uploaddatetime
-        self.lunahub_obj           = lunahub_obj
-           
-        if self.uploader is None:
-            self.uploader = os.getlogin().lower()
+
+        # Init parent class        
+        LunaHubBaseUploader.__init__(self,
+                                     lunahub_obj    = lunahub_obj,
+                                     uploader       = uploader,
+                                     uploaddatetime = uploaddatetime,
+                                     lunahub_config = None)
         
-        if self.uploaddatetime is None:
-            self.uploaddatetime = datetime.datetime.now()
-               
-        if self.lunahub_obj is None:
-            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
 
     def main(self):
         
