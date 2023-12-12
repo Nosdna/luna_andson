@@ -409,7 +409,7 @@ class AgedReceivablesLoader_From_LunaHub:
         # Check FY
         is_fy = df0["FY"] == self.fy
         if not is_fy.any():
-            raise Exception ("Data not found for fy={self.fy}.")
+            raise Exception (f"Data found for client={self.client_number}, but not for fy={self.fy}.")
     
         # Filter
         df = df0[is_client & is_fy]
@@ -589,7 +589,7 @@ if __name__ == "__main__":
             
     
     # Tester to extract
-    if True:
+    if False:
         
         client_number = 7167
         fy = 2022
