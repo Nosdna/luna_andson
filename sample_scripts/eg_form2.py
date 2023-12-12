@@ -116,7 +116,7 @@ class MASForm1_Generator:
                            "current_asset_other_prepayment", "noncurrent_asset_investment_in_subsi", "total_asset"]
         
         # Read Form 1 Mapping Output
-        f1_fp = r"D:\gohjiawey\Desktop\Form 3\f1_map_icm.xlsx"
+        f1_fp = r"D:\gohjiawey\Desktop\Form 3\f1_map_mg.xlsx"
         
         # Extract var_name & Balance columns
         df = pd.read_excel(f1_fp)
@@ -178,6 +178,8 @@ class MASForm1_Generator:
         gl_tb = tb.merge(gl, how="left", left_on="Account No", right_on="GL Account No")
 
         gl_tb["Ending Balance"] = gl_tb["Ending Balance"].fillna(gl_tb["Value"])
+
+        gl_tb["L/S"] = pd.to_numeric(gl_tb["L/S"], errors='coerce')
         
         return gl_tb
 
@@ -773,8 +775,7 @@ class MASForm1_Generator:
         new_cols = depo.columns.to_list() + ["Credit Quality Grade 1?"]
         
         depo = depo.reindex(columns=new_cols)
-        print("HELLO")
-        print(depo)
+   
         
         print("Please tag if the following deposits are credit quality grade 1")
         
@@ -791,11 +792,6 @@ class MASForm1_Generator:
 
         # On Balance sheet assets
         # from GL
-        
-        # Convert "L/S" column to numeric values
-        third_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
-        second_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
-        first_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce') 
          
         dec = third_month[third_month["L/S"]<6000]["Ending Balance"].sum()
         nov = second_month[second_month["L/S"]<6000]["Ending Balance"].sum()
@@ -840,7 +836,7 @@ class MASForm1_Generator:
 
         # Cash and Deposit credit quality grade 1
 
-        cash, depo = self._map_tempdf_by_ls(["5000"], "cash", type="Cash")
+        cash, depo = self._map_tempdf_by_ls([5000], "cash", type="Cash")
 
         aa_corp_own_cash_cashequiv_varname = "aa_corp_own_cash_cashequiv"
         aa_corp_own_cash_cashequiv_row = self.mapper_class.varname_to_index.at[ aa_corp_own_cash_cashequiv_varname]
@@ -1093,14 +1089,14 @@ class MASForm1_Generator:
             sheet[col + '15'] = value
         
         # sixth row (receivables owed by corporations)
-        sixth_row = list(aa_df.iloc[8, -3:])
+        sixth_row = list(aa_df.iloc[7, -3:])
         sixth_row = list(map(lambda x: -float(x), sixth_row)) # convert to float and make it negative
         #Inserting values into celss D17:f17
         for col, value in zip(columns, sixth_row):
             sheet[col + '17'] = value
 
         # seventh row (receivables owed by corporations)
-        seventh_row = list(aa_df.iloc[9, -3:])
+        seventh_row = list(aa_df.iloc[8, -3:])
         seventh_row = list(map(lambda x: -float(x), seventh_row)) # convert to float and make it negative
         #Inserting values into cells D18:f18
         for col, value in zip(columns, seventh_row):
