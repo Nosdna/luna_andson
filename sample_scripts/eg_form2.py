@@ -391,6 +391,12 @@ class MASForm1_Generator:
     
     def _map_tempdf_by_ls(self, acc_list, field_varname, type=None):
         month_end, first_month, second_month, third_month = self.gl_ageing()
+        
+        # Convert "L/S" column to numeric values
+        # third_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
+        # second_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
+        # first_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce') 
+
         deductions_df = self.deductions_df.copy()
         # print(deductions_df)
 
@@ -422,6 +428,7 @@ class MASForm1_Generator:
             depo = self.verify_credit_quality()
             
             accounts = depo[depo["Credit Quality Grade 1?"]=="Yes"]["Account No"].to_list()
+            print(accounts)
 
             # Get ending petty cash / cash in hand balance for 3 months
             cash = first_month[first_month["L/S"].isin(acc_list)]
@@ -449,6 +456,7 @@ class MASForm1_Generator:
         self._map_tempdf_by_ls([5850], "dfr_future_incometax_benefits")
         self._map_tempdf_by_ls([5400.1,5200.2], "current_asset_other_prepayment", type="Prepayment")
         self._map_tempdf_by_ls([5100.3, 5100.4, 5100.5], "dfr_capinvst_subsidiary_associate")
+
 
         # Get column total
         fr_total_deductions_varname = "fr_total_deductions"
@@ -775,7 +783,7 @@ class MASForm1_Generator:
         new_cols = depo.columns.to_list() + ["Credit Quality Grade 1?"]
         
         depo = depo.reindex(columns=new_cols)
-   
+
         
         print("Please tag if the following deposits are credit quality grade 1")
         
@@ -792,6 +800,11 @@ class MASForm1_Generator:
 
         # On Balance sheet assets
         # from GL
+        
+        # Convert "L/S" column to numeric values
+        # third_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
+        # second_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
+        # first_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce') 
          
         dec = third_month[third_month["L/S"]<6000]["Ending Balance"].sum()
         nov = second_month[second_month["L/S"]<6000]["Ending Balance"].sum()
@@ -837,6 +850,8 @@ class MASForm1_Generator:
         # Cash and Deposit credit quality grade 1
 
         cash, depo = self._map_tempdf_by_ls([5000], "cash", type="Cash")
+        print(cash)
+        print(depo)
 
         aa_corp_own_cash_cashequiv_varname = "aa_corp_own_cash_cashequiv"
         aa_corp_own_cash_cashequiv_row = self.mapper_class.varname_to_index.at[ aa_corp_own_cash_cashequiv_varname]
@@ -851,6 +866,12 @@ class MASForm1_Generator:
         # Set values in aa_df to numeric 
         aa_df = aa_df.apply(pd.to_numeric, errors='ignore') 
         print(aa_df)
+        print()
+        print()
+        print()
+        print()
+        print()
+        
 
         self.aa_df = aa_df
 
@@ -1083,6 +1104,7 @@ class MASForm1_Generator:
 
         # fifth row (deductions from FR)
         fifth_row = list(aa_df.iloc[3, -3:])
+        print(fifth_row)
         fifth_row = list(map(lambda x: -float(x), fifth_row)) # convert to float and make it negative
         #Inserting values into celss D15:f15
         for col, value in zip(columns, fifth_row):
@@ -1218,7 +1240,7 @@ class MASForm1_Generator:
 
     ###For last 3 years
         # Retrieve from datahub 
-        datahub_form3 = pd.read_excel("D:\gohjiawey\Desktop\Form 3\draft - Copy.xlsx")
+        datahub_form3 = pd.read_excel("D:\gohjiawey\Desktop\Form 3\draft_MG - Copy.xlsx")
         
         datahub_form3_current = datahub_form3[datahub_form3["FY"] == self.fy]
 
@@ -1235,22 +1257,41 @@ class MASForm1_Generator:
         varname_dict = {}
         for i, row in enumerate(datahub_form3_current["var_name"]):
             if row in (required_varname_list):
-                value = datahub_form3_current.at[i, "Balance"]
+                value = datahub_form3_current.at[i, "Previous Balance"]
                 varname_dict[row] = value
 
         # Total Revenue        
-        sheet["E78"] = varname_dict.get("rev_total_revenue", 0)
+        sheet["E78"] = varname_dict.get("rev_total_revenue", 0) # Default to 0 if key not present
         
-        # Fees expense 
-        sheet["E79"] = varname_dict.get("exp_fee_expense", 0)
+        # Less Fees expense 
+        sheet["E79"] = -varname_dict.get("exp_fee_expense", 0)
 
-        # Commission expense 
-        agents = varname_dict.get('exp_comm_expense_agents', 0)  # Default to 0 if key not present
-        otherbroker = varname_dict.get('exp_comm_expense_otherbroker', 0)  # Default to 0 if key not present
+        # Less Commission expense 
+        agents = -varname_dict.get('exp_comm_expense_agents', 0)  
+        otherbroker = -varname_dict.get('exp_comm_expense_otherbroker', 0)  
         sheet["E80"] = agents + otherbroker
         
-        # Interest expense 
-        sheet["E81"] = varname_dict.get("exp_int_expense", 0)
+        # Less Interest expense 
+        sheet["E81"] = -varname_dict.get("exp_int_expense", 0)
+
+        # Less Income or expenses not derived from ordinary activities and not expected to recur frequently or regularly 
+        answer = self.user_inputs.at["non_freq_income_exp", "Answer"]
+        answer = answer.split(",")
+        varname_list = []
+        for i in answer:
+            if re.search("(?i)div", i):
+                varname_list.append("rev_dividend")
+            elif re.search("(?i)other rev", i):
+                varname_list.append("rev_other_revenue")
+            elif re.search("(?i)interest"):
+                varname_list.append("rev_int_others")
+
+        income_exp_not_ord = 0
+        for i in varname_list:
+            income_exp_not_ord += varname_dict.get(i,0) 
+
+        sheet["E83"] = -income_exp_not_ord  
+
 
 
         # Adjusted annual gross income 
