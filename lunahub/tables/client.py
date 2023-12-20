@@ -1,7 +1,17 @@
-import luna.lunahub as lunahub
+# Import standard libraries
 import pandas as pd
 import os
 import datetime
+import logging
+
+# Import other libraries
+import luna.lunahub as lunahub
+
+# Configure logger
+logger = logging.getLogger()
+if not(logger.hasHandlers()):
+    logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
 
 # class to upload client data
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
@@ -120,12 +130,14 @@ class ClientInfoUploader_To_LunaHub(LunaHubBaseUploader):
                 # means a match is found
                 # then no need to add
                 #print ("exact match found. no need to add")
+                logger.debug("Client info not uploaded as it is already present in lunahub.")
                 pass
             
             else:
                 
                 if self.force_insert:
-                    
+                    logger.debug("Client info forcely inserted although it is already present in lunahub.")
+
                     insert()
                     
                 else:
@@ -136,6 +148,7 @@ class ClientInfoUploader_To_LunaHub(LunaHubBaseUploader):
                         f"{existing.T.__repr__()}\n\n"
                         "Please set force_insertion to True to add."
                         )
+                    logger.error(err)
                     raise Exception (err)
 
 class ClientInfoLoader_From_LunaHub:

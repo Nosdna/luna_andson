@@ -1,29 +1,37 @@
+# Import standard libraries
 import os
 import pandas as pd
 import numpy as np
 import datetime
+import logging
+
+# Import other libraries
 import pyeasylib
 import luna.common.dates as dates
 import luna.common.misc as misc
 import luna.lunahub as lunahub
 import luna.lunahub.tables as tables
-import datetime
-
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
+# Configure logger
+logger = logging.getLogger()
+if not(logger.hasHandlers()):
+    logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
+    
 
 class TBReader_ExcelFormat1:
     
     REQUIRED_HEADERS = ["Account No", "Name", "L/S", "Class"] 
     
     def __init__(self, 
-                 fp, sheet_name = 0, fy_end_date = None,
+                 fp, sheet_name = 0, 
+                 fy_end_date = None,
                  client_number      = None,
                  client_name        = None,
                  insert_to_lunahub  = False):
         '''
         Class to read TB from Excel file.
-        
         
         fy_end_date = the current FY end. Used to verify if the TB
                       for the full year.
@@ -467,55 +475,62 @@ class TBQueryClass:
 
 if __name__ == "__main__":
     
-    # Test ExcelFormat reader
-    if True:
+    # Test ExcelFormat reader from file format 1
+    if False:
+        
         # Specify the param fp    
         dirname = os.path.dirname
         luna_fp = dirname(dirname(__file__))
         param_fp = os.path.join(luna_fp, 'templates')
         fp = os.path.join(param_fp, "tb.xlsx")
         
-        # Read the tb
-        #fp = r"..\templates\tb.xlsx"
+        # Read the tb from file
         sheet_name = "format1"
-        
         fy_end_date = datetime.date(2022, 12, 31)
         client_number = 9999
         client_name = "tester2"
-        self = TBReader_ExcelFormat1(fp, sheet_name = sheet_name, fy_end_date = fy_end_date,
-                                     client_number = client_number, client_name = client_name,
+        self = TBReader_ExcelFormat1(fp, 
+                                     sheet_name = sheet_name, 
+                                     fy_end_date = fy_end_date,
+                                     client_number = client_number, 
+                                     client_name = client_name,
                                      insert_to_lunahub = False)
         
         df_processed_long = self.df_processed_long
-        
-        
-
-        
-        assert False
+                
+        assert False, "End of test."
         
         # Test interval list
-        interval_list = [
-            pd.Interval(7200, 7500, 'both'),
-            pd.Interval(3000.1, 3000.1, 'both')
-            ]
+        if False:
+            
+            # We can specify the interval list as pd.Intervals
+            interval_list = [
+                pd.Interval(7200, 7500, 'both'),
+                pd.Interval(3000.1, 3000.1, 'both')
+                ]
+            
+            # Or we can specify as a string of range
+            interval_list = ["7200-7500", "3000.1"]
+            
+            # Filter
+            boolean, true_match, false_match = \
+                self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
+                
+            assert False, "End of test."
+
         
-        interval_list = ["7200-7500", "3000.1"]
-        boolean, true_match, false_match = \
-            self.filter_tb_by_fy_and_ls_codes(2022, interval_list)
-        
-        assert False
         # Looad and delete from lunahub
         if False:
         
             # Test load to lunahub
             self.load_to_lunahub()
-                    
             
             # Delete from luunahub
             self.lunahub_obj.delete('tb', ["CLIENTNUMBER"], pd.DataFrame([[client_number]], columns=["CLIENTNUMBER"]))
             self.lunahub_obj.delete('client', ["CLIENTNUMBER"], pd.DataFrame([[client_number]], columns=["CLIENTNUMBER"]))
             
             
+    # Test ExcelFormat reader from lunahub
     if False:
                 
         # TESTER TBReader_LunaHub
