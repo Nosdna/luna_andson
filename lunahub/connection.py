@@ -35,7 +35,6 @@ class LunaHubBaseUploader(PyMsSQL):
         Base upload class for LunaHub.
         '''
         
-        
         # Update attr
         self.lunahub_obj    = lunahub_obj
         self.uploader       = uploader
@@ -60,7 +59,7 @@ class LunaHubBaseUploader(PyMsSQL):
     
 if __name__ == "__main__":
     
-    if False:
+    if True:
         
         LUNAHUB_CONFIG = lunahub.LUNAHUB_CONFIG
         

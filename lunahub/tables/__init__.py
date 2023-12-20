@@ -1,1 +1,2 @@
 from luna.lunahub.tables import client
+from luna.lunahub.tables import fs_masf1_userresponse
