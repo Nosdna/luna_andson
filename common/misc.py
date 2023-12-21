@@ -6,15 +6,17 @@ def convert_string_to_interval(s):
     '''
     s = '4900.2' or '2000-3000'
     '''
-
-    if "-" in s:
-        l, r = s.split("-")
-        l = float(l.strip())
-        r = float(r.strip())
-    else:
-        l = float(s)
-        r = l
-    interval = pd.Interval(l, r, closed='both')
+    try:
+        if "-" in s:
+            l, r = s.split("-")
+            l = float(l.strip())
+            r = float(r.strip())
+        else:
+            l = float(s)
+            r = l
+        interval = pd.Interval(l, r, closed='both')
+    except Exception as e:
+        raise Exception (f"Unable to convert to interval for: {s}.\n{str(e)}")
     
     return interval
 
