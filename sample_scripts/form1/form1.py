@@ -10,7 +10,6 @@ import numpy as np
 import re
 from fuzzywuzzy import fuzz, process
 import sys
-sys.path.append("D:\Daciachinzq\Desktop\DS\python")
 
 
 # Import luna package, fsvi package and pyeasylib
