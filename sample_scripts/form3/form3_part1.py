@@ -15,13 +15,6 @@ from copy import copy
 import numpy as np
 import logging
 
-
-if os.getlogin() == "PhuaSiJia":
-    sj_sys_path = r"D:\workspace"
-    sys_path = sj_sys_path
-    sys.path.append(sj_sys_path)
-
-
 # Initialise logger
 logger = logging.getLogger()
 if not(logger.hasHandlers()):
