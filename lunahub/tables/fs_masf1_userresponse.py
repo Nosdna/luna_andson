@@ -96,21 +96,26 @@ class MASForm1UserResponse_DownloaderFromLunaHub:
         
         df = self.read_from_lunahub()
         
-        # filter only necessary cols
-        column_mapper = {
-            v: k 
-            for k, v in MASForm1UserResponse_UploaderToLunaHub.COLUMN_MAPPER.items()
-            }
+        # Initialise the processed output as None first
+        self.df_processed = None
         
-        df = df[column_mapper.keys()]
+        if df is not None:
         
-        # Map col names
-        df = df.rename(columns = column_mapper)
-        
-        # set index
-        df = df.set_index("Index")
-        
-        self.df_processed = df.copy()
+            # filter only necessary cols
+            column_mapper = {
+                v: k 
+                for k, v in MASForm1UserResponse_UploaderToLunaHub.COLUMN_MAPPER.items()
+                }
+            
+            df = df[column_mapper.keys()]
+            
+            # Map col names
+            df = df.rename(columns = column_mapper)
+            
+            # set index
+            df = df.set_index("Index")
+            
+            self.df_processed = df.copy()
         
         return self.df_processed
     
@@ -134,6 +139,7 @@ class MASForm1UserResponse_DownloaderFromLunaHub:
         # Check if client data is available
         if df_client.shape[0] == 0:
             msg = f"Data not found for client = {self.client_number}."
+            self.status = msg
             logger.warning(msg)
             
         else:
@@ -145,6 +151,7 @@ class MASForm1UserResponse_DownloaderFromLunaHub:
                 msg = (f"Data found for client = {self.client_number} "
                        f"but not for FY = {self.fy}. "
                        f"Available FYs: {df_client['FY'].unique()}")
+                self.status = msg
                 logger.warning(msg)
             
             else:
