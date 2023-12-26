@@ -170,6 +170,7 @@ class MASForm1UserResponse_DownloaderFromLunaHub:
                         f"and fy={self.fy}: {versions}. "
                         f"Took the latest = {latest_version}."
                         )
+                    self.status = msg
                     logger.debug(msg)
                 
         # Save
