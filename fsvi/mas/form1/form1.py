@@ -17,6 +17,7 @@ import pyeasylib
 import luna
 import luna.common as common
 import luna.fsvi as fsvi
+import luna.lunahub as lunahub
 
 class MASForm1_Generator:
 
@@ -45,7 +46,9 @@ class MASForm1_Generator:
 
         # If user_inputs not specified, collect manual inputs interactively
         if self.user_inputs is None:
+                            
             self.collect_manual_inputs()
+                                
         else:
             pass
 
@@ -402,6 +405,7 @@ class MASForm1_Generator:
 
         
         answer = self.user_inputs.at["trade_cred_fund_mgmt", "Answer"]
+        print ("\n\n\n\n", answer, "\n\n\n")
         fundmgmt_cred = -int(answer)
         self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
 
@@ -419,7 +423,7 @@ class MASForm1_Generator:
 
         varname = "current_liab_amount_due_to_director"
         
-        if answer == "NA":
+        if (answer == "NA") or (pd.isnull(answer)):
             pass
         else: 
             client_acc_list = [i.strip() for i in answer.split(",")]
@@ -434,7 +438,7 @@ class MASForm1_Generator:
         answer = self.user_inputs.at["loans_from_related_co", "Answer"]
         varname = "current_liab_loans_from_related_co"
         
-        if answer == "NA":
+        if (answer == "NA") or (pd.isnull(answer)):
             pass
         else: 
             client_acc_list = [i.strip() for i in answer.split(",")]
@@ -464,7 +468,7 @@ class MASForm1_Generator:
         answer = self.user_inputs.at["amount_due_from_director_secured", "Answer"]
         varname = "current_asset_amount_due_from_director_secured"
         
-        if answer == "NA":
+        if (answer == "NA") or (pd.isnull(answer)):
             pass
         else: 
             client_acc_list = [i.strip() for i in answer.split(",")]
@@ -479,7 +483,7 @@ class MASForm1_Generator:
         answer = self.user_inputs.at["amount_due_from_director_unsecured", "Answer"]
         varname = "current_asset_amount_due_from_director_unsecured"
         
-        if answer == "NA":
+        if (answer == "NA") or (pd.isnull(answer)):
             pass
         else: 
             client_acc_list = [i.strip() for i in answer.split(",")]
@@ -494,7 +498,7 @@ class MASForm1_Generator:
         answer = self.user_inputs.at["loans_to_related_co", "Answer"]
         varname = "current_asset_loans_to_related_co"
         
-        if answer == "NA":
+        if (answer == "NA") or (pd.isnull(answer)):
             pass
         else: 
             client_acc_list = [i.strip() for i in answer.split(",")]
@@ -795,6 +799,7 @@ if __name__ == "__main__":
         # Load the class
         mapper_class = fsvi.mas.MASTemplateReader_Form1(mas_tb_mapping_fp, sheet_name = "Form 1 - TB mapping")
     
+        
         # process df is here:
         df_processed = mapper_class.df_processed  # need to build methods
 
@@ -826,7 +831,7 @@ if __name__ == "__main__":
         client_name = "MYER GOLD INVESTMENT MANAGEMENT PTE. LTD."
         fy_end_date = pd.to_datetime('31 Dec 2022')
         fy = fy_end_date.year
-        
+       
         
         # Load tb class from LunaHub
         tb_class = common.TBLoader_From_LunaHub(client_number, fy)
@@ -834,9 +839,15 @@ if __name__ == "__main__":
         # Load aged ar class
         aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
         
-
+        # load user response
+        user_response_class = lunahub.tables.fs_masf1_userresponse.MASForm1UserResponse_DownloaderFromLunaHub(
+            client_number,
+            fy)
+        #user_inputs = user_response_class.main()
+        
         self = MASForm1_Generator(tb_class, aged_ar_class,
-                                mapper_class, fy=fy, fuzzy_match_threshold=80, user_inputs=user_inputs)
+                                mapper_class, fy=fy, fuzzy_match_threshold=80, 
+                                user_inputs=user_inputs)
         
         # To test, if user_inputs parameter is not specified, it will collect user inputs interactively
         # self = MASForm1_Generator(tb_class, aged_ar_class,
