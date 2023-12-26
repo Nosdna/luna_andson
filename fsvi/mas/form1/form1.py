@@ -362,25 +362,33 @@ class MASForm1_Generator:
         fuzzy_match_threshold -> int to set threshold for fuzzy matching of client/supplier names to the list provided by auditor
         """
         varname = "current_asset_trade_debt_fund_mgmt"
-
-        ar = self.aged_ar_class.df_processed_long_lcy[["Name", "Value (LCY)"]]
         
-        # Convert input string to list and strip the leading/trailing spaces
-        answer = self.user_inputs.at["trade_debt_fund_mgmt", "Answer"]
+        if self.aged_ar_class is None:
+            
+            # No AR available
+            self.add_bal_to_template_by_varname(varname, 0)
+            
+        else:
 
-        fundmgmt_list = [i.strip() for i in answer.split(",")]
-
-        ar.loc[:,"Match_score"] = ar["Name"].apply(lambda x: process.extractOne(x, fundmgmt_list, scorer=fuzz.token_sort_ratio))
-
-        # Indicate if there is a match, match if 'Match_score' score is above fuzzy_match_threshold provided
-        ar.loc[:,"Matched?"] = ar["Match_score"].apply(lambda x: x[1]) >= fuzzy_match_threshold
-
-        # Filter for matches and obtain the sum of Total Due
-        fundmgmt_df = ar.query("`Matched?`==True")
-
-        fundmgmt_debtors = fundmgmt_df["Value (LCY)"].sum()
-
-        self.add_bal_to_template_by_varname(varname, fundmgmt_debtors)
+            # AR is available for the client
+            ar = self.aged_ar_class.df_processed_long_lcy[["Name", "Value (LCY)"]]
+            
+            # Convert input string to list and strip the leading/trailing spaces
+            answer = self.user_inputs.at["trade_debt_fund_mgmt", "Answer"]
+    
+            fundmgmt_list = [i.strip() for i in answer.split(",")]
+    
+            ar.loc[:,"Match_score"] = ar["Name"].apply(lambda x: process.extractOne(x, fundmgmt_list, scorer=fuzz.token_sort_ratio))
+    
+            # Indicate if there is a match, match if 'Match_score' score is above fuzzy_match_threshold provided
+            ar.loc[:,"Matched?"] = ar["Match_score"].apply(lambda x: x[1]) >= fuzzy_match_threshold
+    
+            # Filter for matches and obtain the sum of Total Due
+            fundmgmt_df = ar.query("`Matched?`==True")
+    
+            fundmgmt_debtors = fundmgmt_df["Value (LCY)"].sum()
+    
+            self.add_bal_to_template_by_varname(varname, fundmgmt_debtors)
 
 
     def _calculate_field_trade_debt_other(self):
@@ -402,10 +410,8 @@ class MASForm1_Generator:
 
         # Trade creditor for fund management
         varname = "current_liab_trade_cred_fund_mgmt"
-
         
         answer = self.user_inputs.at["trade_cred_fund_mgmt", "Answer"]
-        print ("\n\n\n\n", answer, "\n\n\n")
         fundmgmt_cred = -int(answer)
         self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
 

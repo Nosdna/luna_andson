@@ -53,8 +53,14 @@ if __name__ == "__main__":
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
     
     # Load aged ar class
-    aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
-    
+    try:
+        aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
+    except Exception as e:
+        if str(e) == f"Data not found for client_number={client_number}.":
+            aged_ar_class = None        
+        else:
+            raise Exception (e)
+
     # load user response
     user_response_class = lunahub.tables.fs_masf1_userresponse.MASForm1UserResponse_DownloaderFromLunaHub(
         client_number,
