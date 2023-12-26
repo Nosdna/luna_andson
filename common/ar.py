@@ -376,8 +376,8 @@ class AgedReceivablesLoader_From_LunaHub:
         specify uploaddatetime (in str) when there are multiple versions of the same data.
         '''
         
-        self.client_number  = client_number
-        self.fy             = fy
+        self.client_number  = int(client_number)
+        self.fy             = int(fy)
         self.uploaddatetime = uploaddatetime
         self.lunahub_obj    = lunahub_obj
         

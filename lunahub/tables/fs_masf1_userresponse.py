@@ -85,9 +85,8 @@ class MASForm1UserResponse_DownloaderFromLunaHub:
                  client_number, fy,
                  lunahub_obj = None):
         
-        self.client_number  = client_number
-        self.fy             = fy
-        self.uploaddatetime = uploaddatetime
+        self.client_number  = int(client_number)
+        self.fy             = int(fy)
         
         if lunahub_obj is None:
             self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
@@ -204,10 +203,12 @@ if __name__ == "__main__":
         self = MASForm1UserResponse_UploaderToLunaHub(user_inputs, client_number, 
                                                       fy_end_date)
         
-    # Test downloader
-    if True:
+        self.upload_to_lunahub()
         
-        client_number = 99999
+    # Test downloader
+    if False:
+        
+        client_number = 7167
         fy = 2022
         uploaddatetime = None
         lunahub_obj = None

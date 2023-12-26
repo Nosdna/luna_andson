@@ -333,8 +333,8 @@ class TBLoader_From_LunaHub:
         '''
         
         
-        self.client_number  = client_number
-        self.fy             = fy
+        self.client_number  = int(client_number)
+        self.fy             = int(fy)
         self.uploaddatetime = uploaddatetime
         
         self.main()
@@ -429,6 +429,7 @@ class TBQueryClass:
             self.gb_fy = self.df_processed_long.groupby("FY")
         
         # Get
+        fy = int(fy)
         if fy not in self.gb_fy.groups:
             valid_fys = list(self.gb_fy.groups.keys())
             raise KeyError (f"FY={fy} not found. Valid FYs: {list(valid_fys)}")
