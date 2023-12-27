@@ -13,6 +13,8 @@ if True:
     loginid = os.getlogin().lower()
     if loginid == "owghimsiong":
         settings_py_path = r'D:\Desktop\owgs\CODES\luna\settings.py'
+    elif loginid == "phuasijia":
+        settings_py_path = r'D:\workspace\luna\settings.py'
     else:
         raise Exception (f"Invalid user={loginid}. Please specify the path of settings.py.")
     
@@ -27,6 +29,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
+from luna.fsvi.mas.form1.mas_f1_output_formatter import OutputFormatter
 
 # Import help lib
 import pyeasylib
@@ -82,4 +85,13 @@ if __name__ == "__main__":
     self.outputdf.to_excel(output_fp)
     
     print (f"Saved to {output_fp}.")
+    
+    # Run OutputProcessor
+    template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
+    template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
+    final_output_fn = f"mas_form1_formatted_{client_number}_{fy}.xlsx"
+    final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
+    formatting_class = OutputFormatter(output_fp, template_fp, final_output_fp)
+
+    print (f"Final output saved to {final_output_fp}.")
     
