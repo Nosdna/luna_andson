@@ -30,7 +30,7 @@ class MASForm3_Generator_Part2:
     def __init__(self, 
                  df_fp,
                  sig_acc_output_fp,
-                 fy
+                 fy,
                  ):
         
         
@@ -177,7 +177,14 @@ class MASForm3_Generator_Part2:
 
         self.update_sig_acct_by_type("rev", self.declared_sig_accts)
         self.update_sig_acct_by_type("exp", self.declared_sig_accts)
-
+        
+    def write_output(self, output_fp = None):
+        
+        if output_fp is None:
+            logger.warning(f"Output not saved as output_fp = {output_fp}.")
+        else:
+            self.outputdf.to_excel(output_fp)
+            logger.info(f"Output saved to {output_fp}.")
     
 
 if __name__ == "__main__":
