@@ -26,6 +26,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 from luna.fsvi.mas.template_reader import MASTemplateReader_Form3
+import luna.lunahub.tables as tables
 
 
 class MASForm3_Generator:
@@ -45,13 +46,15 @@ class MASForm3_Generator:
     def __init__(self, 
                  tb_class, mapper_class,
                  sig_acc_output_fp,
-                 fy = 2022, 
+                 client_number,
+                 fy, 
                  user_inputs = None):
         
         
         self.tb_class       = tb_class
         self.mapper_class   = mapper_class
         self.sig_acc_output_fp = sig_acc_output_fp
+        self.client_number  = client_number
         self.fy             = fy
         self.user_inputs    = user_inputs 
 
@@ -751,23 +754,33 @@ class MASForm3_Generator:
         # placeholder for db_reader
 
         # placeholder dataframe
-        placeholder_data = {"Account No"    : ["1973558", "1973550", "1973558"],
-                            "Name"          : ["Realised Ex (Gain)/Loss (C)", "Placeholder Account", "Realised Ex (Gain)/Loss (C)"],
-                            "L/S"           : ["7410.4", "7410.4", "7410.4"],
-                            "Class"         : ["Revenue - other", "Revenue - other", "Revenue - other"],
-                            "L/S (interval)": [[7410.4, 7410.4], [7410.4, 7410.4], [7410.4, 7410.4]],
-                            "Value"         : [10568.0, 500000, 10569.0],
-                            "Completed FY?" : [True, True, True],
-                            "Group"         : ["Realised Ex (Gain)/Loss", "Placeholder", "Realised Ex (Gain)/Loss"],
-                            "Type"          : ["Revenue", "Revenue", "Revenue"],
-                            "FY"            : [2021, 2021, 2020],
-                            "Indicator"     : ["Declared in prev FY", ">= 5% of total", ">= 5% of total"]
-                            }
+        if False:
+            placeholder_data = {"Account No"    : ["1973558", "1973550", "1973558"],
+                                "Name"          : ["Realised Ex (Gain)/Loss (C)", "Placeholder Account", "Realised Ex (Gain)/Loss (C)"],
+                                "L/S"           : ["7410.4", "7410.4", "7410.4"],
+                                "Class"         : ["Revenue - other", "Revenue - other", "Revenue - other"],
+                                "L/S (interval)": [[7410.4, 7410.4], [7410.4, 7410.4], [7410.4, 7410.4]],
+                                "Value"         : [10568.0, 500000, 10569.0],
+                                "Completed FY?" : [True, True, True],
+                                "Group"         : ["Realised Ex (Gain)/Loss", "Placeholder", "Realised Ex (Gain)/Loss"],
+                                "Type"          : ["Revenue", "Revenue", "Revenue"],
+                                "FY"            : [2021, 2021, 2020],
+                                "Indicator"     : ["Declared in prev FY", ">= 5% of total", ">= 5% of total"]
+                                }
+            
+            placeholder_df = pd.DataFrame(placeholder_data)
+
+            df = placeholder_df
         
-        placeholder_df = pd.DataFrame(placeholder_data)
-
-        df = placeholder_df
-
+        # Read from lunahub
+        reader_class = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
+                                                                                        fy, lunahub_obj=None)
+        reader_class.main()
+        df = reader_class.df_processed
+        
+        
+        
+        #### SI JIA TO CONTINUE #####
         if df.empty:
             pass
         else:

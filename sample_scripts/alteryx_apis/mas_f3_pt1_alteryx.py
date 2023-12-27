@@ -72,11 +72,19 @@ if __name__ == "__main__":
         fy)
     user_inputs = user_response_class.main()  
     
+    
+                 tb_class, mapper_class,
+                 sig_acc_output_fp,
+                 client_number,
+                 fy, 
+    
+    
     # Current fy    
     current_fy_class = fsvi.mas.MASForm3_Generator(
         tb_class,
         mapper_class,
-        sig_acc_output_fp = sig_acc_output_fp,
+        sig_acc_output_fp,
+        client_number,
         fy = fy,
         user_inputs = user_inputs
         )
@@ -99,7 +107,8 @@ if __name__ == "__main__":
     prevfy_class = fsvi.mas.MASForm3_Generator(
         tb_class_prevfy,
         mapper_class,
-        sig_acc_output_fp = None,
+        None,
+        client_number,
         fy = prevfy,
         user_inputs = user_inputs_prevfy
         )
