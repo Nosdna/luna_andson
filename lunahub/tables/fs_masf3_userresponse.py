@@ -17,7 +17,7 @@ logger.setLevel(logging.DEBUG)
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
 # Load form 1 user response
-from fs_masf1_userresponse import (
+from .fs_masf1_userresponse import (
     MASForm1UserResponse_UploaderToLunaHub,
     MASForm1UserResponse_DownloaderFromLunaHub
     )
@@ -31,6 +31,9 @@ MASForm3UserResponse_UploaderToLunaHub.TABLENAME = 'fs_masf3_userinputs'
 MASForm3UserResponse_DownloaderFromLunaHub = MASForm1UserResponse_DownloaderFromLunaHub
 MASForm3UserResponse_DownloaderFromLunaHub.TABLENAME = 'fs_masf3_userinputs'
 
+# Delete class for form 1
+del MASForm1UserResponse_UploaderToLunaHub
+del MASForm1UserResponse_DownloaderFromLunaHub
 
 if __name__ == "__main__":
     
@@ -38,7 +41,7 @@ if __name__ == "__main__":
     # Test downloader
     if True:
         
-        client_number = 7167
+        client_number = 71679
         fy = 2022
         uploaddatetime = None
         lunahub_obj = None
