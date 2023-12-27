@@ -41,13 +41,14 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    args = parser.parse_args()    
-    client_number = args.client_number
-    fy = int(args.client_fy)
+    if False:
+        args = parser.parse_args()    
+        client_number = args.client_number
+        fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if False:
+    if True:
         client_number = 40709
         fy = 2022
     #############################################
@@ -71,13 +72,7 @@ if __name__ == "__main__":
         client_number,
         fy)
     user_inputs = user_response_class.main()  
-    
-    
-                 tb_class, mapper_class,
-                 sig_acc_output_fp,
-                 client_number,
-                 fy, 
-    
+   
     
     # Current fy    
     current_fy_class = fsvi.mas.MASForm3_Generator(

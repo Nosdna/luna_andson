@@ -48,7 +48,7 @@ class MASForm3SigAccts_DownloaderFromLunaHub:
         df = self.read_from_lunahub()
         
         # Initialise the processed output as None first
-        self.df_processed = None
+        self.df_processed = pd.DataFrame(columns=(self.COLUMN_MAPPER.keys()))
         
         if df is not None:
         

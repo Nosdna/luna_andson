@@ -772,22 +772,24 @@ class MASForm3_Generator:
 
             df = placeholder_df
         
-        # Read from lunahub
+        # Read from lunahub for current year
         reader_class = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
                                                                                         fy, lunahub_obj=None)
         reader_class.main()
         df = reader_class.df_processed
         
-        
-        
-        #### SI JIA TO CONTINUE #####
-        if df.empty:
-            pass
-        else:
-            query = f"Type  == '{account_type}' and (FY == {fy} or FY == {fy-1})"
-            df = df.query(query)
+        # Read from lunahub for previous year
+        prev_fy = int(fy) - 1
+        reader_class_prevfy = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
+                                                                                        prev_fy, lunahub_obj=None)
+        reader_class_prevfy.main()
+        df_prevfy = reader_class_prevfy.df_processed
 
-        return df
+        # Concat for both years
+        df_concat = pd.concat([df, df_prevfy], axis=0)
+        
+
+        return df_concat
     
     def validate_and_update_df(self, df, required_columns):
         # Step 1: Check if all required columns are present in the DataFrame
@@ -943,113 +945,96 @@ class MASForm3_Generator:
 
 if __name__ == "__main__":
         
-    # Get the luna folderpath 
-    luna_init_file = luna.__file__
-    luna_folderpath = os.path.dirname(luna_init_file)
-    logger.info(f"Your luna library is at {luna_folderpath}.")
-    
-    # Get the template folderpath
-    template_folderpath = os.path.join(luna_folderpath, "templates")
-    
-    
-
-    engagement = 'ci'
-
-    question_list = [
-            "Enter the Account No for bad debts (NA if none): ",  
-            "Enter the Account No for provision debts (NA if none): ", 
-            "Enter Director's remuneration (0.00 if None): $ "]   
-
-    varname_list = ["exp_bad_debts", 
-                    "exp_prov_dtf_debts", 
-                    "exp_dir_renum"
-                    ]
-    
-    user_inputs = pd.DataFrame({"Question": question_list}, index = varname_list)
-
-    user_inputs_currfy = user_inputs.copy()
-    user_inputs_prevfy = user_inputs.copy()
-
-    # CrossInvest
-    input_dict_currfy_ci = {'exp_bad_debts'         : '1590054',
-                            'exp_prov_dtf_debts'    : 'CW9',
-                            'exp_dir_renum'         : '677754'
-                            }
-    input_dict_prevfy_ci = {'exp_bad_debts'         : '1590054',
-                            'exp_prov_dtf_debts'    : 'CW9',
-                            'exp_dir_renum'         : '819860'
-                            }
-    
-    # MG
-    input_dict_currfy_mg = {'exp_bad_debts'         : 'NA',
-                            'exp_prov_dtf_debts'    : 'NA',
-                            'exp_dir_renum'         : '748216'
-                            }
-    input_dict_prevfy_mg = {'exp_bad_debts'         : 'NA',
-                            'exp_prov_dtf_debts'    : 'NA',
-                            'exp_dir_renum'         : '792856'
-                            }
-    
-    # ICM
-    input_dict_currfy_icm = {'exp_bad_debts'         : 'NA',
-                             'exp_prov_dtf_debts'    : 'NA',
-                             'exp_dir_renum'         : '619423'
-                            }
-    input_dict_prevfy_icm = {'exp_bad_debts'         : 'NA',
-                             'exp_prov_dtf_debts'    : 'NA',
-                             'exp_dir_renum'         : '0'
-                            }
-    
-    if engagement == 'mg':
-        user_inputs_currfy["Answer"] = [input_dict_currfy_mg[var] for var in user_inputs_currfy.index]
-        user_inputs_prevfy["Answer"] = [input_dict_prevfy_mg[var] for var in user_inputs_prevfy.index]
-        tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Myer Gold Investment Management - 2022 TB.xlsx"
-        fy = 2022
-    elif engagement == 'ci':
-        user_inputs_currfy["Answer"] = [input_dict_currfy_ci[var] for var in user_inputs_currfy.index]
-        user_inputs_prevfy["Answer"] = [input_dict_prevfy_ci[var] for var in user_inputs_prevfy.index]
-        tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
-        fy = 2022
-    elif engagement == 'icm':
-        user_inputs_currfy["Answer"] = [input_dict_currfy_icm[var] for var in user_inputs_currfy.index]
-        user_inputs_prevfy["Answer"] = [input_dict_prevfy_icm[var] for var in user_inputs_prevfy.index]
-        tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\icm TB reformatted.xlsx"
-        fy = 2023
-    else:
-        logger.warning("Engagement {engagement} is not recognised.")
-
-    # # to use when reading from Alteryx
-    # alteryx_fp = {'user_inputs_currfy': ui_currfy_fp,
-    #               'user_inputs_prevfy': ui_prevfy_fp} # fp will be created when working on alteryx
-    # user_inputs_currfy = pd.read_excel(alteryx_fp['user_inputs_currfy'])
-    # user_inputs_prevfy = pd.read_excel(alteryx_fp['user_inputs_prevfy'])
-
-
-    fp_dict = {'aged_receivables_fp'      : r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx",
-               'tb_fp'                    : tb_fp,
-               'sig_acct_output_fp'       : r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output.xlsx",
-               'sig_acct_prevfy_output_fp': r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output_prevfy.xlsx",
-               'output_fp'                : r"D:\Documents\Project\Internal Projects\20231206 Code review\form_3_output.xlsx"}
-    
-    
-    # AGED RECEIVABLES
     if False:
-        aged_receivables_fp = os.path.join(template_folderpath, "aged_receivables.xlsx")
-        aged_receivables_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx"
-        aged_receivables_fp = fp_dict['aged_receivables_fp']
-        logger.info(f"Your aged_receivables_fp is at {aged_receivables_fp}.")
+        # Get the luna folderpath 
+        luna_init_file = luna.__file__
+        luna_folderpath = os.path.dirname(luna_init_file)
+        logger.info(f"Your luna library is at {luna_folderpath}.")
         
-        # Load the AR class
-        aged_ar_class = common.AgedReceivablesReader_Format1(aged_receivables_fp, 
-                                                        sheet_name = 0,            # Set the sheet name
-                                                        variance_threshold = 0.1) # 1E-9) # To relax criteria if required.
+        # Get the template folderpath
+        template_folderpath = os.path.join(luna_folderpath, "templates")
         
-        aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
-                           ">90": ["91 - 120", "121 - 150", "150+"]}
         
-        # Then we get the AR by company (index) and by new bins (columns)
-        aged_df_by_company = aged_ar_class.get_AR_by_new_groups(aged_group_dict)
+    
+        engagement = 'ci'
+    
+        question_list = [
+                "Enter the Account No for bad debts (NA if none): ",  
+                "Enter the Account No for provision debts (NA if none): ", 
+                "Enter Director's remuneration (0.00 if None): $ "]   
+    
+        varname_list = ["exp_bad_debts", 
+                        "exp_prov_dtf_debts", 
+                        "exp_dir_renum"
+                        ]
         
+        user_inputs = pd.DataFrame({"Question": question_list}, index = varname_list)
+    
+        user_inputs_currfy = user_inputs.copy()
+        user_inputs_prevfy = user_inputs.copy()
+    
+        # CrossInvest
+        input_dict_currfy_ci = {'exp_bad_debts'         : '1590054',
+                                'exp_prov_dtf_debts'    : 'CW9',
+                                'exp_dir_renum'         : '677754'
+                                }
+        input_dict_prevfy_ci = {'exp_bad_debts'         : '1590054',
+                                'exp_prov_dtf_debts'    : 'CW9',
+                                'exp_dir_renum'         : '819860'
+                                }
+        
+        # MG
+        input_dict_currfy_mg = {'exp_bad_debts'         : 'NA',
+                                'exp_prov_dtf_debts'    : 'NA',
+                                'exp_dir_renum'         : '748216'
+                                }
+        input_dict_prevfy_mg = {'exp_bad_debts'         : 'NA',
+                                'exp_prov_dtf_debts'    : 'NA',
+                                'exp_dir_renum'         : '792856'
+                                }
+        
+        # ICM
+        input_dict_currfy_icm = {'exp_bad_debts'         : 'NA',
+                                 'exp_prov_dtf_debts'    : 'NA',
+                                 'exp_dir_renum'         : '619423'
+                                }
+        input_dict_prevfy_icm = {'exp_bad_debts'         : 'NA',
+                                 'exp_prov_dtf_debts'    : 'NA',
+                                 'exp_dir_renum'         : '0'
+                                }
+        
+        if engagement == 'mg':
+            user_inputs_currfy["Answer"] = [input_dict_currfy_mg[var] for var in user_inputs_currfy.index]
+            user_inputs_prevfy["Answer"] = [input_dict_prevfy_mg[var] for var in user_inputs_prevfy.index]
+            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Myer Gold Investment Management - 2022 TB.xlsx"
+            fy = 2022
+        elif engagement == 'ci':
+            user_inputs_currfy["Answer"] = [input_dict_currfy_ci[var] for var in user_inputs_currfy.index]
+            user_inputs_prevfy["Answer"] = [input_dict_prevfy_ci[var] for var in user_inputs_prevfy.index]
+            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
+            fy = 2022
+        elif engagement == 'icm':
+            user_inputs_currfy["Answer"] = [input_dict_currfy_icm[var] for var in user_inputs_currfy.index]
+            user_inputs_prevfy["Answer"] = [input_dict_prevfy_icm[var] for var in user_inputs_prevfy.index]
+            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\icm TB reformatted.xlsx"
+            fy = 2023
+        else:
+            logger.warning("Engagement {engagement} is not recognised.")
+    
+        # # to use when reading from Alteryx
+        # alteryx_fp = {'user_inputs_currfy': ui_currfy_fp,
+        #               'user_inputs_prevfy': ui_prevfy_fp} # fp will be created when working on alteryx
+        # user_inputs_currfy = pd.read_excel(alteryx_fp['user_inputs_currfy'])
+        # user_inputs_prevfy = pd.read_excel(alteryx_fp['user_inputs_prevfy'])
+    
+    
+        fp_dict = {'aged_receivables_fp'      : r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx",
+                   'tb_fp'                    : tb_fp,
+                   'sig_acct_output_fp'       : r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output.xlsx",
+                   'sig_acct_prevfy_output_fp': r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output_prevfy.xlsx",
+                   'output_fp'                : r"D:\Documents\Project\Internal Projects\20231206 Code review\form_3_output.xlsx"}
+        
+
     # TB
     if True:
         #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
@@ -1069,19 +1054,8 @@ if __name__ == "__main__":
         # fy = 2022
         tb2022 = tb_class.get_data_by_fy(fy)
         
-        
-    # Form 1 mapping
-    if False:
-        
-        mas_tb_mapping_fp = os.path.join(luna_folderpath, "parameters", "mas_forms_tb_mapping.xlsx")
-        logger.info(f"Your mas_tb_mapping_fp is at {mas_tb_mapping_fp}.")
-        
-        # Load the class
-        mapper_class = fsvi.mas.MASTemplateReader_Form1(mas_tb_mapping_fp, sheet_name = "Form 1 - TB mapping")
-    
-        # process df is here:
-        df_processed = mapper_class.df_processed  # need to build methods
 
+    
     # Form 3 mapping 
     if True:
         
@@ -1097,12 +1071,14 @@ if __name__ == "__main__":
 
 
     # CLASS
-    # fy = 2022
+    fy = 2022
+    client_number = 40709
     sig_acc_output_fp = fp_dict['sig_acct_output_fp']
     self = MASForm3_Generator(tb_class,
                               mapper_class,
-                              sig_acc_output_fp = sig_acc_output_fp,
-                              fy = fy,
+                              sig_acc_output_fp,
+                              client_number,
+                              fy,
                               user_inputs = user_inputs_currfy
                               ) # is this an instance of a class?
 
