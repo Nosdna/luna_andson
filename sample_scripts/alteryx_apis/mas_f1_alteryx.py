@@ -44,6 +44,9 @@ if __name__ == "__main__":
     args = parser.parse_args()    
     client_number = args.client_number
     fy = args.client_fy
+        
+    #client_number = 71679
+    #fy = 2022
 
     # Load mapping file
     mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  

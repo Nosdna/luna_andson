@@ -17,23 +17,51 @@ logger.setLevel(logging.DEBUG)
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
 # Load form 1 user response
-from .fs_masf1_userresponse import (
+from luna.lunahub.tables.fs_masf1_userresponse import (
     MASForm1UserResponse_UploaderToLunaHub,
     MASForm1UserResponse_DownloaderFromLunaHub
     )
 
-# Alias
 # Form 3 uploader
-MASForm3UserResponse_UploaderToLunaHub = MASForm1UserResponse_UploaderToLunaHub
-MASForm3UserResponse_UploaderToLunaHub.TABLENAME = 'fs_masf3_userinputs'
+# Borrow the class from form 1, but change the table name
+
+class MASForm3UserResponse_UploaderToLunaHub(MASForm1UserResponse_UploaderToLunaHub):
+    
+    TABLENAME = "fs_masf3_userinputs"
+    
+    def __init__(
+        self, 
+        user_inputs, client_number, fy_end_date, 
+        uploader = None,
+        uploaddatetime = None,
+        lunahub_obj = None):
+        
+        MASForm1UserResponse_UploaderToLunaHub.__init__(
+            user_inputs, client_number, fy_end_date, 
+            uploader = uploader,
+            uploaddatetime = uploaddatetime,
+            lunahub_obj = lunahub_obj
+            )
+        
+
+
+
+
 
 # Form 3 downloader
-MASForm3UserResponse_DownloaderFromLunaHub = MASForm1UserResponse_DownloaderFromLunaHub
-MASForm3UserResponse_DownloaderFromLunaHub.TABLENAME = 'fs_masf3_userinputs'
+# Borrow the class from form 1, but change the table name
 
+class MASForm3UserResponse_DownloaderFromLunaHub(MASForm1UserResponse_DownloaderFromLunaHub):
+    
+    TABLENAME = "fs_masf3_userinputs"
+    
+    def __init__(self, client_number, fy, lunahub_obj = None):
+        
+        MASForm1UserResponse_DownloaderFromLunaHub.__init__(
+            self, client_number, fy, lunahub_obj = lunahub_obj)
+        
+    
 # Delete class for form 1
-del MASForm1UserResponse_UploaderToLunaHub
-del MASForm1UserResponse_DownloaderFromLunaHub
 
 if __name__ == "__main__":
     
@@ -45,9 +73,8 @@ if __name__ == "__main__":
         fy = 2022
         uploaddatetime = None
         lunahub_obj = None
-        self = MASForm1UserResponse_DownloaderFromLunaHub(client_number,
+        self = MASForm3UserResponse_DownloaderFromLunaHub(client_number,
                                                           fy,
-                                                          
                                                           lunahub_obj)
         
-        df = self.main()
+       # df = self.main()
