@@ -186,7 +186,7 @@ class MASForm3_Generator:
         3) Auditor to select which accounts should map to (2a) Bad debts writted off or (2b) Provision for doubtful debts
         
         '''           
-        tb = tb_class.get_data_by_fy(fy)
+        tb = self.tb_class.get_data_by_fy(self.fy)
 
         baddebt_df = tb[tb["Name"].str.match(fr'(?i)bad\sdebts?')]
         provdebt_df = tb[tb["Name"].str.match(fr'(?i)pro.*\sdebts?|do.+\sdebts?')]
@@ -883,34 +883,50 @@ class MASForm3_Generator:
     def design_acct_output(self):
 
         fp = self.sig_acc_output_fp
-        df = self.acct_output
-
-        df.fillna(0, inplace = True)
-
-        df.to_excel(fp, index = False, sheet_name = "Sheet1")
-
-        wb = openpyxl.load_workbook(fp)
-        ws = wb.active
-
-        col_letter = openpyxl.utils.get_column_letter(df.shape[1]+1)
-
-        # create new col and format header
-        ws[f'{col_letter}1'] = f'Declare for current FY?'
-        old_cell = ws['A1']
-        new_cell = ws[f'{col_letter}1']
-        new_cell.border = copy(old_cell.border)
-        new_cell.font = copy(old_cell.font)
+        
+        if fp is None:
+            # no need to save, i.e. when run for previous year
+            pass
+        
+        else:
+            
+            df = self.acct_output
     
-        dv = DataValidation(type     = "list",
-                            formula1 = '"Yes, No"',
-                            allow_blank =True
-                            )
+            df.fillna(0, inplace = True)
+    
+            df.to_excel(fp, index = False, sheet_name = "Sheet1")
+    
+            wb = openpyxl.load_workbook(fp)
+            ws = wb.active
+    
+            col_letter = openpyxl.utils.get_column_letter(df.shape[1]+1)
+    
+            # create new col and format header
+            ws[f'{col_letter}1'] = f'Declare for current FY?'
+            old_cell = ws['A1']
+            new_cell = ws[f'{col_letter}1']
+            new_cell.border = copy(old_cell.border)
+            new_cell.font = copy(old_cell.font)
         
-        dv.add(f'{col_letter}2:{col_letter}{df.shape[0] + 1}')
-
-        ws.add_data_validation(dv)
+            dv = DataValidation(type     = "list",
+                                formula1 = '"Yes, No"',
+                                allow_blank =True
+                                )
+            
+            dv.add(f'{col_letter}2:{col_letter}{df.shape[0] + 1}')
+    
+            ws.add_data_validation(dv)
+            
+            wb.save(fp)
+            
+    def write_output(self, output_fp = None):
         
-        wb.save(fp)
+        if output_fp is None:
+            logger.warning(f"Output not saved as output_fp = {output_fp}.")
+        else:
+            self.outputdf.to_excel(output_fp)
+            logger.info(f"Output saved to {output_fp}.")
+            
 
 if __name__ == "__main__":
         
