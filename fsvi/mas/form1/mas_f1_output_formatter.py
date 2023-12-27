@@ -34,12 +34,9 @@ class OutputFormatter:
         self.write_output()
 
     def read_files(self):
-
+        # Read the file with the values
         self.input_df = pd.read_excel(self.input_fp)
-        self.template_df = pd.read_excel(self.template_fp,
-                                         sheet_name = "Form 1 - TB mapping",
-                                         skiprows   = 6
-                                         )
+
     
     def build_varname_to_values(self):
         
