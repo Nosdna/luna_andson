@@ -34,10 +34,10 @@ elif loginid == "gohjiawey":
     TEMP_FOLDERPATH = None         #SET HERE
 
 elif loginid == "phuasijia":
-    LUNAHUB_CONFIG_FILEPATH = None #SET HERE
-    PYEASYLIB_FOLDERPATH = None    #SET HERE
-    LUNA_FOLDERPATH = None         #SET HERE
-    TEMP_FOLDERPATH = None         #SET HERE
+    LUNAHUB_CONFIG_FILEPATH = r"D:\workspace\luna\personal_workspace\db\secrets.py"
+    PYEASYLIB_FOLDERPATH = r"D:\workspace\pyeasylib"
+    LUNA_FOLDERPATH = r"D:\workspace\luna"
+    TEMP_FOLDERPATH = r"D:\workspace\luna\personal_workspace\tmp"
     
 else:
     raise Exception ("Sorry. You are not authorised to run this.")
