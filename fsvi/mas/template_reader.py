@@ -77,6 +77,13 @@ class MASTemplateReader_Form1:
         #
         self._format_leadsheet_code()
         
+        # Get column names
+        self.colname_to_excelcol = pd.Series(
+            dict(zip(self.df_processed.columns, self.df0.columns))
+            )
+        self.colname_to_excelcol.name = "ExcelCol"
+    
+        
         
     def _format_leadsheet_code(self):
         
@@ -198,7 +205,16 @@ class MASTemplateReader_Form3:
             
             #
             self._format_leadsheet_code()
+            
         
+            # Get column names
+            self.colname_to_excelcol = pd.Series(
+                dict(zip(self.df_processed.columns, self.df0.columns))
+                )
+            self.colname_to_excelcol.name = "ExcelCol"
+        
+        
+
 
     def _format_leadsheet_code(self):
         
