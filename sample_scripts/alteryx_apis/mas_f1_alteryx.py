@@ -44,12 +44,12 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    args = parser.parse_args()    
-    client_number = args.client_number
-    fy = args.client_fy
+    #args = parser.parse_args()    
+    #client_number = args.client_number
+    #fy = args.client_fy
         
-    #client_number = 71679
-    #fy = 2022
+    client_number = 71679
+    fy = 2022
 
     # Load mapping file
     mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
     final_output_fn = f"mas_form1_formatted_{client_number}_{fy}.xlsx"
     final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
-    formatting_class = OutputFormatter(output_fp, template_fp, final_output_fp)
+    formatting_class = OutputFormatter(output_fp, final_output_fp)
 
     print (f"Final output saved to {final_output_fp}.")
     
