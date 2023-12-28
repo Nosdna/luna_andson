@@ -424,7 +424,7 @@ class AgedReceivablesLoader_From_LunaHub:
                 raise Exception ("No data found.")        
         
         # Check if there are multiple upload dates
-        upload_info = df[["UPLOADDATETIME", "COMMENTS"]].drop_duplicates()
+        upload_info = df[["UPLOADDATETIME"]].drop_duplicates()
         if upload_info.shape[0] > 1:
             raise Exception (
                 f"Multiple uploads for the data:\n\n{upload_info.__repr__()}"
@@ -589,9 +589,9 @@ if __name__ == "__main__":
             
     
     # Tester to extract
-    if False:
+    if True:
         
-        client_number = 7167
+        client_number = 4070
         fy = 2022
         uploaddatetime = None #'2023-12-08 18:39:03.533'
         lunahub_obj = None

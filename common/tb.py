@@ -375,7 +375,7 @@ class TBLoader_From_LunaHub:
         df = lunahub_obj.read_table(query = query)
         
         # Check if there are multiple records for this run
-        version_df = df[["DATE", "UPLOADER", "UPLOADDATETIME", "COMMENTS"]].drop_duplicates()
+        version_df = df[["DATE", "UPLOADER", "UPLOADDATETIME"]].drop_duplicates()
         
         if (version_df.shape[0] > 1):
             
@@ -532,10 +532,10 @@ if __name__ == "__main__":
             
             
     # Test ExcelFormat reader from lunahub
-    if False:
+    if True:
                 
         # TESTER TBReader_LunaHub
-        client_number = 7167
+        client_number = 71679
         fy            = 2022
         
         self = TBLoader_From_LunaHub(client_number, fy)
