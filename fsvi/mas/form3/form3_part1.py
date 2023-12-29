@@ -180,7 +180,6 @@ class MASForm3_Generator:
         return value 
 
 
-
     def output_debt_accounts(self):
         '''
         Agreed treatment: 
@@ -928,12 +927,13 @@ class MASForm3_Generator:
                                 allow_blank =True
                                 )
             
-            if df.shape[0] > 0:
+            # Only add a last column if df has data
+            if df.shape[0] > 0:    
                 dv.add(f'{col_letter}2:{col_letter}{df.shape[0] + 1}')
-                ws.add_data_validation(dv)
             else:
                 pass
-
+            
+            ws.add_data_validation(dv)
             wb.save(fp)
             
     def write_output(self, output_fp = None):
