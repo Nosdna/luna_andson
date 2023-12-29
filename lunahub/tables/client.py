@@ -152,11 +152,113 @@ class ClientInfoUploader_To_LunaHub(LunaHubBaseUploader):
                     raise Exception (err)
 
 class ClientInfoLoader_From_LunaHub:
+
+    TABLENAME = "client"
     
-    def __init__(self):
+    def __init__(self,
+                 client_number,
+                 lunahub_obj = None):
         
-        raise NotImplementedError
-              
+        self.client_number = int(client_number)
+
+        if lunahub_obj is None:
+            self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
+        
+        # raise NotImplementedError
+            
+    def main(self):
+
+        df = self.read_from_lunahub()
+
+        # Initialise the processed output as None first
+        self.df_processed = None
+        
+        if False:
+            if df is not None:
+            
+                # filter only necessary cols
+                column_mapper = {
+                    v: k 
+                    for k, v in MASForm1UserResponse_UploaderToLunaHub.COLUMN_MAPPER.items()
+                    }
+                
+                df = df[column_mapper.keys()]
+                
+                # Map col names
+                df = df.rename(columns = column_mapper)
+                
+                # set index
+                df = df.set_index("Index")
+                
+                self.df_processed = df.copy()
+        
+        return df
+    
+    def read_from_lunahub(self):
+
+        # Init output var
+        df_client           = None
+        df_client_latest = None # There can be many uploads. 
+                                   # Take the latest
+
+        # Read for this client
+        query = (
+            f"SELECT * FROM {self.TABLENAME} "
+            "WHERE "
+            f"([CLIENTNUMBER] = {self.client_number})"
+            )                
+        df_client = self.lunahub_obj.read_table(query = query)
+        
+        # Check if client data is available
+        if df_client.shape[0] == 0:
+            msg = f"Data not found for client = {self.client_number}."
+            self.status = msg
+            logger.warning(msg)
+            
+        else:
+
+            # Finally, check the versions
+            versions = df_client["UPLOADDATETIME"].unique()
+            latest_version = versions.max()
+    
+            # Filter by latest
+            df_client_latest = df_client[
+                df_client["UPLOADDATETIME"] == latest_version]
+            
+            if len(versions) > 1:
+                msg = (
+                    f"Multiple versions for client={self.client_number} "
+                    f"and fy={self.fy}: {versions}. "
+                    f"Took the latest = {latest_version}."
+                    )
+                self.status = msg
+                logger.debug(msg)
+                
+        # Save
+        self.df_client = df_client
+        self.df_client_fy_latest = df_client_latest
+        
+        return df_client_latest
+    
+    def retrieve_client_info(self, key):
+
+        df = self.main()
+
+        dct = df.T.to_dict()[0]
+
+        value = dct.get(key)
+
+        return value
+    
+    def retrieve_fy_end_date(self, fy):
+
+        fy_end_day      = self.retrieve_client_info("FY_END_DAY")
+        fy_end_month    = self.retrieve_client_info("FY_END_MONTH")
+                       
+        fy_end_date = datetime.datetime(int(fy), int(fy_end_month), int(fy_end_day))
+
+        return fy_end_date
+                       
 
 if __name__ == "__main__":
     
@@ -180,3 +282,18 @@ if __name__ == "__main__":
         self.main()
         
         #self.lunahub_obj.delete('client', ["CLIENTNUMBER"], pd.DataFrame([[1]], columns=["CLIENTNUMBER"]))
+
+    # Test downloader
+    if False:
+        lunahub_obj = None
+        client_number = 71679
+        self = ClientInfoLoader_From_LunaHub(client_number, lunahub_obj)
+
+    # Test query
+    if True:
+        fy = 2022
+        client_number = 71679
+        lunahub_obj = None
+        
+        self = ClientInfoLoader_From_LunaHub(client_number, lunahub_obj)
+        self.retrieve_fy_end_date(fy)

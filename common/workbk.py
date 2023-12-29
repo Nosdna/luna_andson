@@ -18,8 +18,8 @@ class CreditDropdownList:
     def create_dropdown_list(self):
 
           self.create_wb()
-          self.data = self.read_wb()
-          return self.data
+      #     self.data = self.read_wb()
+      #     return self.data
     
     def create_wb(self):
 
@@ -51,8 +51,11 @@ class CreditDropdownList:
             
 if __name__ == "__main__":
 
-    workbk_fp = r"D:\gohjiawey\Desktop\Form 3\Credit Quality.xlsx"
+
+      if False:
+            
+            workbk_fp = r"D:\gohjiawey\Desktop\Form 3\Credit Quality.xlsx"
     
-    workbk = CreditDropdownList(workbk_fp)
-    processed_workbk = workbk.create_dropdown_list()
-    processed_workbk 
+            workbk = CreditDropdownList(workbk_fp)
+            processed_workbk = workbk.create_dropdown_list()
+            processed_workbk 

@@ -537,6 +537,12 @@ class AgedReceivables_QueryClass:
             "Value (LCY)", index="Name", columns="Group", aggfunc="sum",
             fill_value = 0)
     
+    def get_AR_by_new_groups_and_month(self, group_dict, mth_number):
+
+        df = self._split_AR_to_new_groups(group_dict)
+
+        return df
+    
         
 if __name__ == "__main__":
     
@@ -589,7 +595,7 @@ if __name__ == "__main__":
             
     
     # Tester to extract
-    if True:
+    if False:
         
         client_number = 4070
         fy = 2022
@@ -599,3 +605,23 @@ if __name__ == "__main__":
         self = AgedReceivablesLoader_From_LunaHub(client_number, fy, 
                                                   uploaddatetime = uploaddatetime,
                                                   lunahub_obj = lunahub_obj)
+        
+    # Tester for self.get_AR_by_new_groups_and_month(self, group_dict, mth_number):
+    if True:
+
+        client_number = 71679
+        fy = 2022
+        uploaddatetime = None #'2023-12-08 18:39:03.533'
+        lunahub_obj = None
+
+        group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
+                      ">90": ["91 - 120", "121 - 150", "150+"]}
+        
+        self = AgedReceivablesLoader_From_LunaHub(client_number, fy, 
+                                                  uploaddatetime = uploaddatetime,
+                                                  lunahub_obj = lunahub_obj)
+        
+        self2 = self
+        self = AgedReceivables_QueryClass(self.df_processed_long_lcy)
+        
+        self.get_AR_by_new_groups_and_month(group_dict, 1)
