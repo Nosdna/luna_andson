@@ -6,8 +6,13 @@ from fuzzywuzzy import fuzz, process
 from datetime import datetime
 import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
+import sys
+sys.path.append("D:\gohjiawey\Desktop\Form 3\CODES")
 
+import luna
 import pyeasylib
+from luna.common import misc 
+# import luna.commmon.misc as misc 
 
 import luna.common.misc as misc
 
@@ -28,7 +33,6 @@ class MASTemplateReader_Form1:
         self.process_template()
         self.get_varname_to_ls_codes()
         
-
     def read_data_from_file(self):
         
         # Read the main df
@@ -288,7 +292,14 @@ class MASTemplateReader_Form3:
     #     # Get 
     #     return self.varname_to_lscodes.at[varname]
 
+        s = self.get_varname_to_ls_codes()
 
+        if varname not in s.index:
+            
+            raise KeyError (f"Input varname={varname} not found.")
+        
+        return s.at[varname]
+ 
 if __name__ == "__main__":
 
     # Specify the param fp    
@@ -302,10 +313,27 @@ if __name__ == "__main__":
     # Main
     self = MASTemplateReader_Form1(fp, sheet_name)
     
-    self.read_data_from_file()
-    
-    self.process_template()
-    df_processed = self.df_processed
+    if False:
+        #fp = r"D:\Desktop\owgs\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
+        fp  = r"D:\gohjiawey\Desktop\Form 3\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
+
+        sheet_name = "Form 3 - TB mapping"
+
+        self = MASTemplateReader_Form3(fp, sheet_name)
+
+        self.read_data_from_file()
+        
+        self.process_template()
+        df_processed = self.df_processed
+
+        self.get_ls_codes_by_varname("exp_prov_dtf_debts")
+        #df_processed.to_excel("testing.xlsx")
+        
+        df_processed
+
+    if True:
+        fp  = r"D:\gohjiawey\Desktop\Form 3\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
+        sheet_name = "Form 2 - TB mapping"
     
     self.get_ls_codes_by_varname("puc_rev_reserve")
 
