@@ -787,8 +787,9 @@ class MASForm3_Generator:
         # Concat for both years
         df_concat = pd.concat([df, df_prevfy], axis=0)
         
+        filtered_df = df_concat[df_concat["Type"] == account_type]
 
-        return df_concat
+        return filtered_df
     
     def validate_and_update_df(self, df, required_columns):
         # Step 1: Check if all required columns are present in the DataFrame
@@ -829,7 +830,7 @@ class MASForm3_Generator:
         query_str = ""
         
         for col in cols_lst:
-            query_str += f"{col} == True"
+            query_str += f"({col} == True)"
             if col != cols_lst[-1]:
                 query_str += " or "
         filtered_tb = tb.query(query_str)
@@ -843,11 +844,10 @@ class MASForm3_Generator:
         else:
             filtered_tb["Indicator"] = f">= 5% of total"
 
-
         prev_fy_sig_accts = self.load_sig_accts_from_datahub(type_search, fy-1)
 
-        cols_to_keep = ["Account No", "Name", "L/S", "Class", "L/S (interval)",
-                        "Value", "Completed FY?", "Group", "FY", "Indicator"
+        cols_to_keep = ["Account No", "Name", "L/S", "Value", "Group", "FY",
+                        "Indicator"
                         ]
         
         filtered_tb = self.validate_and_update_df(filtered_tb, cols_to_keep)
@@ -934,7 +934,6 @@ class MASForm3_Generator:
                 pass
             
             ws.add_data_validation(dv)
-            
             wb.save(fp)
             
     def write_output(self, output_fp = None):
@@ -1039,7 +1038,7 @@ if __name__ == "__main__":
         
 
     # TB
-    if True:
+    if False:
         #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
         #tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
         
@@ -1074,8 +1073,8 @@ if __name__ == "__main__":
 
 
     # CLASS
-    fy = 2022
-    client_number = 40709
+    # fy = 2022
+    # client_number = 40709
     sig_acc_output_fp = fp_dict['sig_acct_output_fp']
     self = MASForm3_Generator(tb_class,
                               mapper_class,
@@ -1092,7 +1091,8 @@ if __name__ == "__main__":
 
     temp = MASForm3_Generator(tb_class,
                               mapper_class,
-                              sig_acc_output_fp = sig_acc_output_fp_prevfy,
+                              sig_acc_output_fp,
+                              client_number,
                               fy=prevfy,
                               user_inputs = user_inputs_prevfy)
     self.outputdf['Previous Balance'] = temp.outputdf["Balance"]

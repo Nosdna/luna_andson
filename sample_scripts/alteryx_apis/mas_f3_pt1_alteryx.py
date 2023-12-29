@@ -13,6 +13,8 @@ if True:
     loginid = os.getlogin().lower()
     if loginid == "owghimsiong":
         settings_py_path = r'D:\Desktop\owgs\CODES\luna\settings.py'
+    elif loginid == "phuasijia":
+        settings_py_path = r'D:\workspace\luna\settings.py'
     else:
         raise Exception (f"Invalid user={loginid}. Please specify the path of settings.py.")
     
@@ -41,14 +43,14 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         client_number = 40709
         fy = 2022
     #############################################
