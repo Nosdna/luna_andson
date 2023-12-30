@@ -32,6 +32,7 @@ class MASForm2_Generator_Part2:
     def __init__(self, tb_class, mapper_class, gl_class,
                  aged_ar_class, client_class,
                  credit_quality_output_fp,
+                 temp_fp,
                  client_number,
                  fy = 2022,
                  user_inputs = None):
@@ -43,6 +44,7 @@ class MASForm2_Generator_Part2:
         self.aged_ar_class              = aged_ar_class
         self.client_class               = client_class
         self.credit_quality_output_fp   = credit_quality_output_fp
+        self.temp_fp                    = temp_fp
         self.client_number              = client_number
         self.fy                         = fy
         self.user_inputs                = user_inputs
@@ -75,7 +77,7 @@ class MASForm2_Generator_Part2:
         self.map_total_risk_requirement()
         self.map_fr_trr_ratio()
         
-        self.verify_credit_quality()
+        # self.verify_credit_quality()
         
         self.create_aa_tempdf()
         self.map_aa_df()
@@ -121,10 +123,12 @@ class MASForm2_Generator_Part2:
                            "current_asset_other_prepayment", "noncurrent_asset_investment_in_subsi", "total_asset"]
         
         # Read Form 1 Mapping Output
-        f1_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_71679_2022.xlsx"
+        # f1_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_71679_2022.xlsx"
+        f1_output = lunahub.tables.fs_masf1_output.MASForm1Output_LoaderFromLunaHub(self.client_number, self.fy)
+        df = f1_output.main().reset_index()
         
         # Extract var_name & Balance columns
-        df = pd.read_excel(f1_fp)
+        # df = pd.read_excel(f1_fp)
         filtered_df = df[df["var_name"].isin(f1_varname_list)]
         filtered_df = filtered_df[["var_name", "Balance"]]
 
@@ -486,7 +490,7 @@ class MASForm2_Generator_Part2:
             cash = [oct_cash,nov_cash,dec_cash]
             depo = [oct_depo,nov_depo,dec_depo]
 
-            return cash,depo
+            return cash, depo
 
         self.deductions_df = deductions_df
     
@@ -818,10 +822,8 @@ class MASForm2_Generator_Part2:
         self.aa_df = aa_df
 
     def verify_credit_quality(self):
-        
-        depo = pd.read_excel(self.credit_quality_output_fp)
 
-        return depo
+        return pd.read_excel(self.credit_quality_output_fp)
    
     def map_aa_df(self):
         month_end, first_month, second_month, third_month = self.gl_ageing()
@@ -916,13 +918,16 @@ class MASForm2_Generator_Part2:
 
         return self.aged_df_by_company
         
-    def update_fees_receivables_tempdf(self, aged_receivables_fp):
+    def update_fees_receivables_tempdf(self):
 
-        # TODO: to confirm logic with JW
         # To get the accounts receivables data for each month (already in SGD)
-        thirdmonth = self.arprocessing(aged_receivables_fp,sheet_name = 0)
-        secondmonth = self.arprocessing(aged_receivables_fp,sheet_name = 1)
-        firstmonth = self.arprocessing(aged_receivables_fp, sheet_name = 2)
+        if False: #TODO: Check with D and JW what the logic is for this
+            thirdmonth = self.ar_class
+        if True:
+            aged_receivables_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
+            thirdmonth = self.arprocessing(aged_receivables_fp,sheet_name = 0)
+            secondmonth = self.arprocessing(aged_receivables_fp,sheet_name = 1)
+            firstmonth = self.arprocessing(aged_receivables_fp, sheet_name = 2)
 
         # This company is non-CLMS, so need to remove from the computation
         answer = self.user_inputs.at["non_clms", "Answer"]
@@ -1085,7 +1090,8 @@ class MASForm2_Generator_Part2:
 #### Output for auditors (AAA)
     def output_excel(self):
         
-        template_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\Average Adjusted Assets Template.xlsx"
+        template_fp = r"D:\workspace\luna\parameters\mas_f2_awp_template.xlsx"
+        ws_name = "aaa"
         
         aa_df = self.aa_df.copy()
 
@@ -1094,7 +1100,7 @@ class MASForm2_Generator_Part2:
         wb = openpyxl.load_workbook(template_fp)
         
         # Get workbook active sheet object
-        sheet = wb.active
+        sheet = wb[ws_name]
 
 
         # first row (on-balance sheet assets)
@@ -1177,18 +1183,23 @@ class MASForm2_Generator_Part2:
         # Has AAA exceeded the above threshold?
         sheet['I31']= '=IF((I21<I26)*(I21<I27),"No","Yes")'
         
-        wb.save("updated_workbook.xlsx")
+        awp_fn = f"mas_f2_{self.client_number}_{self.fy}_awp.xlsx"
+        awp_fp = os.path.join(self.temp_fp, awp_fn)
+        self.awp_fp = awp_fp
+
+        wb.save(awp_fp)
 
 #### Output for auditors (TRR)
     def output_excel_trr(self):
-        template_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\TRR.xlsx"
+        # template_fp = r"D:\workspace\luna\parameters\mas_f2_awp_template.xlsx"
+        ws_name = "trr"
 
          # To open the workbook 
         # workbook object is created
-        wb = openpyxl.load_workbook(template_fp)
+        wb = openpyxl.load_workbook(self.awp_fp)
         
         # Get workbook active sheet object
-        sheet = wb.active
+        sheet = wb[ws_name]
 
         # Retrieve from datahub (need current year)
         # datahub = pd.read_excel(self.output_wp_fp)
@@ -1270,7 +1281,7 @@ class MASForm2_Generator_Part2:
         
         f3_output = lunahub.tables.fs_masf3_output.MASForm3Output_LoaderFromLunaHub(self.client_number, self.fy)
 
-        datahub_form3_current = f3_output.main()
+        datahub_form3_current = f3_output.main().reset_index()
 
         required_varname_list = ["rev_total_revenue",
                                 "exp_fee_expense", 
@@ -1350,7 +1361,15 @@ class MASForm2_Generator_Part2:
         sheet["E94"] = "=E90*0.02"
 
         # Save the workbook
-        wb.save("updated_trr.xlsx")
+        wb.save(self.awp_fp)
+
+    def write_output(self, output_fp = None):
+        
+        if output_fp is None:
+            logger.warning(f"Output not saved as output_fp = {output_fp}.")
+        else:
+            self.outputdf.to_excel(output_fp)
+            logger.info(f"Output saved to {output_fp}.")
 
 if __name__ == "__main__":
 
@@ -1451,28 +1470,33 @@ if __name__ == "__main__":
         client_number,
         fy)
         user_inputs = user_response_class.main()  
-
-    # CLASS
         
-    # Credit quality output fp
-    folderpath = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_"
-    credit_quality_output_fn = "credit_quality.xlsx"
-    credit_quality_output_fp = folderpath + credit_quality_output_fn
+    if True:
+        import importlib.util
+        loginid = os.getlogin().lower()
+        if loginid == "owghimsiong":
+            settings_py_path = r'D:\Desktop\owgs\CODES\luna\settings.py'
+        elif loginid == "phuasijia":
+            settings_py_path = r'D:\workspace\luna\settings.py'
+        else:
+            raise Exception (f"Invalid user={loginid}. Please specify the path of settings.py.")
+        
+        # Import the luna environment through settings.
+        # DO NOT TOUCH
+        spec = importlib.util.spec_from_file_location("settings", settings_py_path)
+        settings = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(settings)
 
-    output_fn = "output.xlsx"
-    output_fp = folderpath + output_fn
-
-    output_wp_fn = "output_wp.xlsx"
-    output_wp_fp = folderpath + output_wp_fn
-    
-    # Output fp
-
+        credit_quality_output_fn = "mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+        credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
+ 
     self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
                                     gl_class,
                                     aged_ar_class,
                                     client_class,
                                     credit_quality_output_fp,
+                                    settings.TEMP_FOLDERPATH,
                                     client_number,
                                     fy,
                                     user_inputs = user_inputs

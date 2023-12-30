@@ -56,8 +56,8 @@ if __name__ == "__main__":
     if True:
         fy                          = 2022
         client_number               = 71679
-        credit_quality_output_fp    = r"D:\workspace\luna\personal_workspace\tmp\mas_form2_71679_2022_credit_quality.xlsx"
-        final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
+        credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+        # final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
         
     # Load AR from LunaHub
@@ -103,34 +103,27 @@ if __name__ == "__main__":
     # CLASS
         
     # Credit quality output fp
-    folderpath = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_"
-    credit_quality_output_fn = "credit_quality.xlsx"
-    credit_quality_output_fp = folderpath + credit_quality_output_fn
-
-    output_fn = "output.xlsx"
-    output_fp = folderpath + output_fn
-
-    output_wp_fn = "output_wp.xlsx"
-    output_wp_fp = folderpath + output_wp_fn
+    # output_folderpath = rf"D:\workspace\luna\personal_workspace\tmp"
+    credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+    credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn) 
     
-    # Output fp
-
     self = fsvi.mas.MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
                                     gl_class,
                                     aged_ar_class,
                                     client_class,
                                     credit_quality_output_fp,
+                                    settings.TEMP_FOLDERPATH,
                                     client_number,
                                     fy,
                                     user_inputs = user_inputs
                                     )
     
-    # Get df by varname
-    # filtered_tb = self.filter_tb_by_varname('current_asset_trade_debt_other')
-    
-    # Output to excel 
-    # self.outputdf.to_excel("draftf2.xlsx") 
+    # Specify temp file
+    output_fn = f"mas_f2_{client_number}_{fy}.xlsx"
+    output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
+    pyeasylib.create_folder_for_filepath(output_fp)    
+    self.write_output(output_fp)
 
 
     

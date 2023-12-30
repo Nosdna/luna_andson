@@ -56,7 +56,7 @@ if __name__ == "__main__":
     #############################################
     
     # Default credit_quality_output fp
-    credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
+    credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
     credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
     pyeasylib.create_folder_for_filepath(credit_quality_output_fp) 
 
