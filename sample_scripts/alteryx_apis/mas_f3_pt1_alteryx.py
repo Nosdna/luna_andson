@@ -43,14 +43,14 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    if True:
+    if False:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if False:
+    if True:
         client_number = 40709
         fy = 2022
     #############################################
@@ -118,5 +118,10 @@ if __name__ == "__main__":
     output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
     pyeasylib.create_folder_for_filepath(output_fp)    
     current_fy_class.write_output(output_fp)
+
+    # Open output file
+    if True:
+        import webbrowser
+        webbrowser.open(sig_acc_output_fp)
     
 

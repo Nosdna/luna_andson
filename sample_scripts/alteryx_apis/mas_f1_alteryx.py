@@ -44,12 +44,14 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    #args = parser.parse_args()    
-    #client_number = args.client_number
-    #fy = args.client_fy
+    if True:
+        args = parser.parse_args()    
+        client_number = args.client_number
+        fy = args.client_fy
         
-    client_number = 71679
-    fy = 2022
+    if False:
+        client_number = 71679
+        fy = 2022
 
     # Load mapping file
     mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  
@@ -94,4 +96,9 @@ if __name__ == "__main__":
     formatting_class = OutputFormatter(output_fp, final_output_fp)
 
     print (f"Final output saved to {final_output_fp}.")
+
+    # Open output file
+    if True:
+        import webbrowser
+        webbrowser.open(final_output_fp)
     

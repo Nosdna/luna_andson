@@ -81,6 +81,11 @@ if __name__ == "__main__":
         credit_quality_output_fp,
         fy = fy
         )
+    
+    # Open output file
+    if True:
+        import webbrowser
+        webbrowser.open(credit_quality_output_fp)
 
     # # Specify temp file
     # output_fn = f"mas_form2_{client_number}_{fy}_part1.xlsx"

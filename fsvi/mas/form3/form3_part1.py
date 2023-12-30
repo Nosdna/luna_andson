@@ -930,11 +930,12 @@ class MASForm3_Generator:
             # Only add a last column if df has data
             if df.shape[0] > 0:    
                 dv.add(f'{col_letter}2:{col_letter}{df.shape[0] + 1}')
+                ws.add_data_validation(dv)
             else:
                 pass
-            
-            ws.add_data_validation(dv)
+
             wb.save(fp)
+            wb.close()
             
     def write_output(self, output_fp = None):
         
@@ -947,7 +948,7 @@ class MASForm3_Generator:
 
 if __name__ == "__main__":
         
-    if False:
+    if True:
         # Get the luna folderpath 
         luna_init_file = luna.__file__
         luna_folderpath = os.path.dirname(luna_init_file)
@@ -1038,7 +1039,7 @@ if __name__ == "__main__":
         
 
     # TB
-    if False:
+    if True:
         #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
         #tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
         
@@ -1073,8 +1074,8 @@ if __name__ == "__main__":
 
 
     # CLASS
-    # fy = 2022
-    # client_number = 40709
+    fy = 2022
+    client_number = 40709
     sig_acc_output_fp = fp_dict['sig_acct_output_fp']
     self = MASForm3_Generator(tb_class,
                               mapper_class,

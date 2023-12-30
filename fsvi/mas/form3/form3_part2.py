@@ -37,7 +37,7 @@ class MASForm3_Generator_Part2:
         
         self.outputdf_fp       = df_fp
         self.client_number     = client_number
-        self.fy                = fy
+        self.fy                = int(fy)
         
         self.main()
 
@@ -157,7 +157,10 @@ class MASForm3_Generator_Part2:
                 if ctr < min(6, sig_acct_grouped.shape[0]):
                     self.outputdf.loc[marker+1, 'Header 3'] = sig_acct_grouped.loc[j, 'Group']
                     self.outputdf.loc[marker+1, "Balance"] = sig_acct_grouped.loc[j, self.fy]
-                    self.outputdf.loc[marker+1, "Previous Balance"] = sig_acct_grouped.loc[j, prev_fy]
+                    try:
+                        self.outputdf.loc[marker+1, "Previous Balance"] = sig_acct_grouped.loc[j, prev_fy]
+                    except:
+                        self.outputdf.loc[marker+1, "Previous Balance"] = 0
                     # elif sig_acct_grouped.loc[j, "FY"] == prev_fy:
                     #     print(f"at j: {j} updating for FY{prev_fy}")
                     #     outputdf.loc[marker+1, 'Header 3'] = sig_acct_grouped.loc[j, 'Group']

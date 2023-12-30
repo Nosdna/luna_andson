@@ -7,6 +7,8 @@ import os
 import sys
 import argparse
 import importlib.util
+import glob
+import re
 
 # Set luna path - Load from settings.py
 if True:
@@ -29,6 +31,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
+from luna.fsvi.mas.form3.mas_f3_output_formatter import OutputFormatter
 
 # Import help lib
 import pyeasylib
@@ -39,34 +42,57 @@ if __name__ == "__main__":
 
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--client_number", required=True)
-    parser.add_argument("--client_fy", required=True)
-    parser.add_argument("--part1_output_fp", required=True)
-    parser.add_argument("--final_output_fp", required=True)
+    # parser.add_argument("--client_number", required=True)
+    # parser.add_argument("--client_fy", required=True)
+    # parser.add_argument("--part1_output_fp", required=True)
+    # parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
-        client_number = args.client_number
-        fy = int(args.client_fy)
-        part1_output_fp = args.part1_output_fp
-        final_output_fp = args.final_output_fp
+        # client_number = args.client_number
+        # fy = int(args.client_fy)
+        # part1_output_fp = args.part1_output_fp
+        # final_output_fp = args.final_output_fp
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         fy = 2022
         client_number = 40709
         # sig_acc_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_sig_accounts.xlsx"
-        part1_output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx"
-        final_output_fp =     r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
+        # part1_output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx"
+        # final_output_fp =     r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
 
+    ## Look for sig_account file
+    # pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
+    pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_*_*_sig_accounts.xlsx")
+    list_of_files = glob.glob(pattern)
+    sig_acc_fp = max(list_of_files, key=os.path.getctime)
+    client_number = re.findall("mas_form3_(\d+)_\d{4}_sig_accounts.xlsx", sig_acc_fp)[0]
+    fy = re.findall("mas_form3_\d+_(\d{4})_sig_accounts.xlsx", sig_acc_fp)[0]
+        
+    part1_output_fn = f'mas_form3_{client_number}_{fy}_part1.xlsx'
+    output_fn = f'mas_form3_{client_number}_{fy}.xlsx'
+    part1_output_fp = os.path.join(settings.TEMP_FOLDERPATH, part1_output_fn)
+    output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
+        
     # Run and output 
     form3_part2_generator = fsvi.mas.MASForm3_Generator_Part2(
         part1_output_fp, client_number, fy)
     
-    form3_part2_generator.write_output(output_fp = final_output_fp)
+    form3_part2_generator.write_output(output_fp = output_fp)
+
+    # Run OutputProcessor
+    template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
+    template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
+    final_output_fn = f"mas_form3_formatted_{client_number}_{fy}.xlsx"
+    final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
+    formatting_class = OutputFormatter(output_fp, final_output_fp, fy)
     
     
-    
+    # Open output file
+    if True:
+        import webbrowser
+        webbrowser.open(final_output_fp)

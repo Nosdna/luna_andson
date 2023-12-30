@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         fy                          = 2022
         client_number               = 71679
         credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
@@ -125,8 +125,11 @@ if __name__ == "__main__":
     pyeasylib.create_folder_for_filepath(output_fp)    
     self.write_output(output_fp)
 
+    # Open output file
+    if True:
+        import webbrowser
+        webbrowser.open(output_fp)
 
-    
     if False:
         # Run and output 
         form3_part2_generator = fsvi.mas.MASForm2_Generator_Part2(
