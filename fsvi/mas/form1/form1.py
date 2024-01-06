@@ -768,12 +768,6 @@ class MASForm1_Generator:
 
     def process_ocr_output(self):
 
-        # luna_folderpath = r"D:\workspace\luna"
-
-        # ocr_fn = f"mas_form1_{self.client_number}_{self.fy}_alteryx_ocr.xlsx"
-        # ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
-
-        # ocr_class = fsvi.mas.form1.mas_f1_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form1", luna_fp = luna_folderpath)
         ocr_df = self.ocr_class.execute()
 
         column_mapper = {"var_name" : "var_name",

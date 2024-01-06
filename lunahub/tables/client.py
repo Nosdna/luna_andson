@@ -228,7 +228,7 @@ class ClientInfoLoader_From_LunaHub:
             if len(versions) > 1:
                 msg = (
                     f"Multiple versions for client={self.client_number} "
-                    f"and fy={self.fy}: {versions}. "
+                    #f"and fy={self.fy}: {versions}. "
                     f"Took the latest = {latest_version}."
                     )
                 self.status = msg
@@ -242,7 +242,7 @@ class ClientInfoLoader_From_LunaHub:
     
     def retrieve_client_info(self, key):
 
-        df = self.main()
+        df = self.main().reset_index()
 
         dct = df.T.to_dict()[0]
 
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     # Test query
     if True:
         fy = 2022
-        client_number = 71679
+        client_number = 7167
         lunahub_obj = None
         
         self = ClientInfoLoader_From_LunaHub(client_number, lunahub_obj)

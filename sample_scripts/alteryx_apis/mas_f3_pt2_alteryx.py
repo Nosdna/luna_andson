@@ -86,17 +86,20 @@ if __name__ == "__main__":
         
     # Run and output 
     self = fsvi.mas.MASForm3_Generator_Part2(
-        part1_output_fp, client_number, fy,
-        aic_name, mic_name)
+        part1_output_fp, client_number, fy)
     
     self.write_output(output_fp = output_fp)
+
+    # Initialise client_class
+    client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
 
     # Run OutputProcessor
     template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
     template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
     final_output_fn = f"mas_form3_formatted_{client_number}_{fy}.xlsx"
     final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
-    formatting_class = OutputFormatter(output_fp, final_output_fp, fy)
+    formatting_class = OutputFormatter(output_fp, final_output_fp, fy,
+                                       client_class, aic_name, mic_name)
     
     
     # Open output file

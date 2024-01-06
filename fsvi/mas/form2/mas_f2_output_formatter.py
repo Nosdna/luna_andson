@@ -3,10 +3,10 @@ from openpyxl.styles import PatternFill
 from openpyxl.styles import Font
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
+from openpyxl.formatting.rule import CellIsRule
 import pandas as pd
 from copy import copy
 from datetime import datetime
-import numpy as np
 
 import luna
 from luna.fsvi.mas.template_reader import MASTemplateReader_Form1
@@ -26,10 +26,11 @@ class OutputFormatter:
                      "target_varname_excelcol"      : "M"
                      }
     
-    def __init__(self, input_fp, output_fp, client_class, aic_name = "", mic_name = ""):
+    def __init__(self, input_fp, output_fp, ocr_fp, client_class, aic_name = "", mic_name = ""):
 
         self.input_fp       = input_fp
         self.output_fp      = output_fp
+        self.ocr_fp         = ocr_fp
         self.client_class   = client_class
         self.aic_name       = aic_name
         self.mic_name       = mic_name
@@ -57,14 +58,14 @@ class OutputFormatter:
     def read_files(self):
         # Read the file with the values
         self.input_df = pd.read_excel(self.input_fp)
+        self.ocr_df = pd.read_excel(self.ocr_fp)
 
     
-    def build_varname_to_values(self):
+    def build_varname_to_values(self, df):
         
-        #
-        input_df = self.input_df.copy()
+        df = df.copy()
     
-        varname_to_values = input_df[
+        varname_to_values = df[
             ["var_name", "Amount", "Subtotal"]
             ].dropna(subset=["var_name"])
         
@@ -74,9 +75,9 @@ class OutputFormatter:
         else:
             raise Exception ("Variable name is not unique.")
                     
-        self.varname_to_values = varname_to_values.copy()
+        # self.varname_to_values = varname_to_values.copy()
         
-        return self.varname_to_values
+        return varname_to_values
     
     def _load_client_info(self):
 
@@ -190,7 +191,12 @@ class OutputFormatter:
         varname_to_index = self.template_class.varname_to_index
         
         # Get the data
-        varname_to_values = self.build_varname_to_values()
+        varname_to_values = self.build_varname_to_values(self.input_df)
+        self.varname_to_values = varname_to_values.copy()
+
+        # Get data from ocr
+        varname_to_values_ocr = self.build_varname_to_values(self.ocr_df)
+        self.varname_to_values_ocr = varname_to_values_ocr.copy()
         
         # Save column index
         amt_excelcol = colname_to_excelcol.at["Amount"]
@@ -268,6 +274,12 @@ class OutputFormatter:
             if templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value in [999999999, '999999999']:
                 templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value = None
 
+            # TODO: temporary measure for H56
+            if templ_ws[f"{subtotal_excelcol}{row}"].value in [999999999, '999999999']:
+                templ_ws[f"{subtotal_excelcol}{row}"].value = None
+            if templ_ws[f"{amt_excelcol}{row}"].value in [999999999, '999999999']:
+                templ_ws[f"{amt_excelcol}{row}"].value = None
+
             if templ_ws[f"{amt_excelcol}{row}"].value == amt:
                 templ_ws[f"{target_var_amt_excelcol}{row}"].value = f"= {target_ocr_amt_excelcol}{row} - {amt_excelcol}{row}"
 
@@ -281,6 +293,18 @@ class OutputFormatter:
             templ_ws[f"{target_var_subtotal_excelcol}{row}"].number_format = '#,##0.00'
             templ_ws[f"{target_ocr_amt_excelcol}{row}"].number_format = '#,##0.00'
             templ_ws[f"{target_ocr_subtotal_excelcol}{row}"].number_format = '#,##0.00'
+
+        for varname in varname_to_values_ocr.index:
+            amt_ocr = varname_to_values_ocr.at[varname, "Amount"]
+            subtotal_ocr = varname_to_values_ocr.at[varname, "Subtotal"]
+            
+            # Get the location to update
+            row = varname_to_index.at[varname]
+            
+            # Update
+            templ_ws[f"{target_ocr_amt_excelcol}{row}"].value = amt_ocr
+            templ_ws[f"{target_ocr_subtotal_excelcol}{row}"].value = subtotal_ocr
+
 
         self._copy_column_style(templ_ws, amt_excelcol, target_var_amt_excelcol)
         self._copy_column_style(templ_ws, subtotal_excelcol, target_var_subtotal_excelcol)
@@ -309,20 +333,20 @@ class OutputFormatter:
             cell[0].fill = var_fill
             cell[1].fill = var_fill
 
+        # conditional formatting
+        redFill = PatternFill(start_color='EE1111',
+                              end_color='EE1111',
+                              fill_type='solid')
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}131",
+                                      CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}131",
+                                      CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
+        
+
         templ_ws[f"{target_var_amt_excelcol}7"].value = "Amount (Var)"
         templ_ws[f"{target_var_amt_excelcol}7"].font = Font(bold = True)
         templ_ws[f"{target_var_subtotal_excelcol}7"].value = "Subtotal (Var)"
         templ_ws[f"{target_var_subtotal_excelcol}7"].font = Font(bold = True)
-
-        # for cell in templ_ws[f"{amt_excelcol}"]:
-        #     if cell.value in ["'999999999", '999999999', 999999999]:
-        #         cell.value = None
-        # for cell in templ_ws[f"{subtotal_excelcol}"]:
-        #     if cell.value in ["'999999999", '999999999', 999999999]:
-        #         cell.value = None
-
-
-
 
         templ_ws.column_dimensions[target_varname_excelcol].hidden = True
         self._create_header(templ_ws)
@@ -341,8 +365,9 @@ if __name__ == "__main__":
         #template_fp = r"D:\workspace\luna\parameters\mas_forms_tb_mapping.xlsx"
         #output_fp   = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_formatted_71679_2022.xlsx"
 
-        input_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_f2_71679_2022.xlsx"
-        output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_f2_formatted_71679_2022.xlsx"
+        input_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form2_{client_no}_{fy}.xlsx"
+        ocr_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form2_{client_no}_{fy}_ocr.xlsx"
+        output_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form2_formatted_{client_no}_{fy}.xlsx"
         
         client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
         
@@ -351,6 +376,7 @@ if __name__ == "__main__":
         
         self = OutputFormatter(input_fp     = input_fp,
                                output_fp    = output_fp,
+                               ocr_fp       = ocr_fp,
                                client_class = client_class,
                                aic_name     = aic_name,
                                mic_name     = mic_name

@@ -159,7 +159,7 @@ class Form1Processor(FormProcessor):
         super().__init__(df_to_process=df_to_process)
 
         # self.var_map_filepath = "map_to_variable.xlsx"
-        var_map_fn = "mas_f1_map_to_variable.xlsx"
+        var_map_fn = "map_to_variable.xlsx"
         self.var_map_filepath = os.path.join(luna_fp, "parameters", var_map_fn)
 
         self.strings_to_replace = ["9.00", "9-00", "9-00", "9", "99", "9 99", "9 og"] # strings to replace with 0

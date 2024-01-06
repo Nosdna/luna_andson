@@ -31,7 +31,7 @@ from openpyxl.utils import get_column_letter
 class MASForm2_Generator_Part2:
     
     def __init__(self, tb_class, mapper_class, gl_class,
-                 aged_ar_class, client_class,
+                 aged_ar_class, client_class, ocr_class,
                  credit_quality_output_fp,
                  temp_fp,
                  client_number,
@@ -45,6 +45,7 @@ class MASForm2_Generator_Part2:
         self.gl_class                   = gl_class
         self.aged_ar_class              = aged_ar_class
         self.client_class               = client_class
+        self.ocr_class                  = ocr_class
         self.credit_quality_output_fp   = credit_quality_output_fp
         self.temp_fp                    = temp_fp
         self.client_number              = client_number
@@ -94,6 +95,7 @@ class MASForm2_Generator_Part2:
         self.output_excel_trr()
 
         self.load_output_to_lunahub()
+        self.process_ocr_output()
 
     def _prepare_output_container(self):
 
@@ -1281,6 +1283,22 @@ class MASForm2_Generator_Part2:
                                                                              )
         loader_class.main()
 
+    def process_ocr_output(self):
+
+        ocr_df = self.ocr_class.execute()
+
+        column_mapper = {"var_name" : "var_name",
+                         "amount"   : "Amount",
+                         "subtotal" : "Subtotal"}
+        
+        ocr_df = ocr_df[column_mapper.keys()]
+        # Map col names
+        ocr_df = ocr_df.rename(columns = column_mapper)
+
+        self.ocr_df = ocr_df
+        
+        return ocr_df
+
 if __name__ == "__main__":
 
     # Get the luna folderpath 
@@ -1295,7 +1313,7 @@ if __name__ == "__main__":
     if True:
         client_number = 71679
         fy = 2022
-        current_quarter_end_date = '30/06/2022'
+        current_quarter_end_date = '2022-12-31'
        
     ### AGED RECEIVABLES ###
     # Load AR from file
@@ -1400,11 +1418,18 @@ if __name__ == "__main__":
         credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
         credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
  
+    # ocr class
+    ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
+    ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+    ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
+
+    
     self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
                                     gl_class,
                                     aged_ar_class,
                                     client_class,
+                                    ocr_class,
                                     credit_quality_output_fp,
                                     settings.TEMP_FOLDERPATH,
                                     client_number,

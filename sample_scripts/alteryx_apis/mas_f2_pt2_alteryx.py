@@ -64,22 +64,26 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
-        fy                          = 2022
-        client_number               = 71679
-        credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+        # fy                          = 2022
+        # client_number               = 71679
+        # credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
         aic_name                    = "John Smith"
         mic_name                    = "Jane Doe"
-        current_qtr                 = "31/12/2022"
+        current_qtr                 = "2022-12-31"
         # final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
+        
+    # Get the luna folderpath 
+    luna_init_file = luna.__file__
+    luna_folderpath = os.path.dirname(luna_init_file)
     
     ## Look for sig_account file
     # pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
-    pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_f2_*_*_credit_quality.xlsx")
+    pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form2_*_*_credit_quality.xlsx")
     list_of_files = glob.glob(pattern)
     cred_quality_fp = max(list_of_files, key=os.path.getctime)
-    client_number = re.findall("mas_f2_(\d+)_\d{4}_credit_quality.xlsx", cred_quality_fp)[0]
-    fy = re.findall("mas_f2_\d+_(\d+)_credit_quality.xlsx", cred_quality_fp)[0]
+    client_number = re.findall("mas_form2_(\d+)_\d{4}_credit_quality.xlsx", cred_quality_fp)[0]
+    fy = re.findall("mas_form2_\d+_(\d+)_credit_quality.xlsx", cred_quality_fp)[0]
 
     # Load AR from LunaHub
     if True:
@@ -110,6 +114,12 @@ if __name__ == "__main__":
     if True:
         gl_class = common.gl.GLLoader_From_LunaHub(client_number, fy)
 
+    # ocr class
+    ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
+    ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+    ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
+
+
     # Retrieve FY end date
     if True:
         client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number, None)
@@ -134,7 +144,7 @@ if __name__ == "__main__":
         
     # Credit quality output fp
     # output_folderpath = rf"D:\workspace\luna\personal_workspace\tmp"
-    credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+    credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
     credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn) 
     
     self = fsvi.mas.MASForm2_Generator_Part2(tb_class,
@@ -142,6 +152,7 @@ if __name__ == "__main__":
                                     gl_class,
                                     aged_ar_class,
                                     client_class,
+                                    ocr_class,
                                     credit_quality_output_fp,
                                     settings.TEMP_FOLDERPATH,
                                     client_number,
@@ -159,11 +170,17 @@ if __name__ == "__main__":
     final_output_fn = f"mas_form2_formatted_{client_number}_{fy}.xlsx"
     final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
 
+    # Specify OCR output file
+    ocr_fn = f"mas_form2_{client_number}_{fy}_ocr.xlsx"
+    ocr_fp = os.path.join(settings.TEMP_FOLDERPATH, ocr_fn)
+    pyeasylib.create_folder_for_filepath(ocr_fp)    
+    self.ocr_df.to_excel(ocr_fp)
+
     # Initialise client_class
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
 
     # Format output
-    formatting_class = OutputFormatter(output_fp, final_output_fp, client_class, aic_name, mic_name)
+    formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp, client_class, aic_name, mic_name)
 
     print (f"Final output saved to {final_output_fp}.")
 

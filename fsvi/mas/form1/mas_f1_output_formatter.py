@@ -3,6 +3,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.styles import Font
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
+from openpyxl.formatting.rule import CellIsRule
 import pandas as pd
 from copy import copy
 from datetime import datetime
@@ -313,6 +314,14 @@ class OutputFormatter:
             cell[0].fill = var_fill
             cell[1].fill = var_fill
 
+        # conditional formatting
+        redFill = PatternFill(start_color='EE1111',
+                              end_color='EE1111',
+                              fill_type='solid')
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}238",
+                                      CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}238",
+                                      CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
         templ_ws[f"{target_var_amt_excelcol}7"].value = "Amount (Var)"
         templ_ws[f"{target_var_amt_excelcol}7"].font = Font(bold = True)
         templ_ws[f"{target_var_subtotal_excelcol}7"].value = "Subtotal (Var)"
