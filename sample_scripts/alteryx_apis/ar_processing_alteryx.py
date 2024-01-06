@@ -57,14 +57,14 @@ if __name__ == "__main__":
     if True:
         # client_number = 40709
         # fy = 2022
-        file_fp = r"D:\workspace\luna\templates\aged_receivables.xlsx"
+        file_fp = r"D:\workspace\luna\personal_workspace\db\input_file.xlsx"
         file_format = "format1"
     #############################################
 
     #process file_fp string
     file_fp = re.findall("r?(.*\.xlsx)|||.*", file_fp)[0]
 
-    self = common.AgedReceivablesReader_Format1(file_fp, sheet_name = "format1",
+    self = common.AgedReceivablesReader_Format1(file_fp, sheet_name = "AR_Aged_format1",
                                                 variance_threshold = 0.01)
     
     self.main()
