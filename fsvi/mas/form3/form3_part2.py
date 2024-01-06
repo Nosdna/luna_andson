@@ -44,22 +44,14 @@ class MASForm3_Generator_Part2:
     def main(self):
 
         self.read_outputdf()
-        # self.process_acct_input()
+        
         self.update_sig_acct()
+
+        self.load_output_to_lunahub()
 
     def read_outputdf(self):
 
         self.outputdf = pd.read_excel(self.outputdf_fp)
-
-    # def process_acct_input(self):
-
-    #     df = pd.read_excel(self.sig_acc_output_fp)
-
-    #     new_df = df[df["Declare for current FY?"] == "Yes"]
-
-    #     new_df.fillna("Not provided by user", inplace = True)
-
-    #     self.declared_sig_accts = new_df
 
     def load_sig_accts_from_datahub(self, account_type, fy):
         
@@ -132,7 +124,7 @@ class MASForm3_Generator_Part2:
             logger.error(f"Type '{acct_type}' specified is not supported."
                   "Please indicate a different account type.")
 
-        sig_acct = sig_accts[sig_accts["Type"] == acct_type]
+        sig_acct = sig_accts[sig_accts["Type"] == acct_type].reset_index()
 
         for i in range(sig_acct.shape[0]):
             if sig_acct.loc[i, 'Group'] == "Not provided by user":
@@ -177,7 +169,7 @@ class MASForm3_Generator_Part2:
 
         self.update_sig_acct_by_type("rev")
         self.update_sig_acct_by_type("exp")
-        
+
     def write_output(self, output_fp = None):
         
         if output_fp is None:
@@ -185,6 +177,14 @@ class MASForm3_Generator_Part2:
         else:
             self.outputdf.to_excel(output_fp)
             logger.info(f"Output saved to {output_fp}.")
+
+    def load_output_to_lunahub(self):
+
+        loader_class = tables.fs_masf3_output.MASForm3Output_LoaderToLunaHub(self.outputdf,
+                                                                             self.client_number,
+                                                                             self.fy
+                                                                             )
+        loader_class.main()
     
 
 if __name__ == "__main__":

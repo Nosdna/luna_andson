@@ -1,6 +1,9 @@
 # Personal workspace
 personal_workspace/
 
+# Ignore .pyc files
+ *.pyc
+
 # Ignore all tmp Excel files (when it is opened).
 # E.g. when input_template.xlsx is opened, a tmp file ~$input_template.xlsx will be created.
 # To ignore this file in git.

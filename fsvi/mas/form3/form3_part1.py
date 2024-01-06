@@ -227,8 +227,15 @@ class MASForm3_Generator:
         bad_debt_answer = self.user_inputs.at["exp_bad_debts", "Answer"]
         provision_debt_answer = self.user_inputs.at["exp_prov_dtf_debts", "Answer"]
 
-        client_baddebt_list = [i.strip() for i in bad_debt_answer.split(",")]
-        client_provdebt_list= [i.strip() for i in provision_debt_answer.split(",")]
+        if bad_debt_answer is None:
+            client_baddebt_list = "NA"
+        else:
+            client_baddebt_list = [i.strip() for i in bad_debt_answer.split(",")]
+
+        if provision_debt_answer is None:
+            client_provdebt_list = "NA"
+        else:
+            client_provdebt_list= [i.strip() for i in provision_debt_answer.split(",")]
 
 
         if (client_baddebt_list == "NA") & (client_provdebt_list == "NA"):
@@ -737,7 +744,7 @@ class MASForm3_Generator:
             logger.error(f"Account type '{account_type}' specified is not supported."
                          "Please indicate a different account type.")
 
-        return abs(total * 0.05)
+        return abs(total * 0.00005)
     
     def filter_tb_by_amount(self, amount, filter_type, tb):
 
@@ -957,8 +964,7 @@ if __name__ == "__main__":
         # Get the template folderpath
         template_folderpath = os.path.join(luna_folderpath, "templates")
         
-        
-    
+        client_number = 40709
         engagement = 'ci'
     
         question_list = [
@@ -1039,7 +1045,7 @@ if __name__ == "__main__":
         
 
     # TB
-    if True:
+    if False:
         #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
         #tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
         
@@ -1056,6 +1062,9 @@ if __name__ == "__main__":
         # Get data by fy
         # fy = 2022
         tb2022 = tb_class.get_data_by_fy(fy)
+    if True:
+        # Load tb class from LunaHub
+        tb_class = common.TBLoader_From_LunaHub(client_number, fy)
         
 
     
@@ -1074,8 +1083,7 @@ if __name__ == "__main__":
 
 
     # CLASS
-    fy = 2022
-    client_number = 40709
+    
     sig_acc_output_fp = fp_dict['sig_acct_output_fp']
     self = MASForm3_Generator(tb_class,
                               mapper_class,

@@ -23,16 +23,18 @@ class MASForm1_Generator:
 
     def __init__(self, 
                  tb_class, aged_ar_class, mapper_class,
-                 fy,
+                 client_class, ocr_class, fy,
                  fuzzy_match_threshold = 80, 
                  user_inputs = None):
         
-        self.tb_class       = tb_class
-        self.aged_ar_class  = aged_ar_class
-        self.mapper_class   = mapper_class
-        self.fy = fy
-        self.fuzzy_match_threshold = fuzzy_match_threshold
-        self.user_inputs = user_inputs
+        self.tb_class               = tb_class
+        self.aged_ar_class          = aged_ar_class
+        self.mapper_class           = mapper_class
+        self.client_class           = client_class
+        self.ocr_class              = ocr_class
+        self.fy                     = fy
+        self.fuzzy_match_threshold  = fuzzy_match_threshold
+        self.user_inputs            = user_inputs
         
         self.main()
         
@@ -54,7 +56,7 @@ class MASForm1_Generator:
 
         # Map TB numbers to outputdf
         self.map_tb_to_output()
-
+        
         # Ordinary Shares
         self._calculate_field_ord_share()
 
@@ -114,6 +116,12 @@ class MASForm1_Generator:
 
         # Calculate row totals
         self.get_row_totals()
+        
+        # Load output to lunahub
+        self.load_output_to_lunahub()
+
+        # Process OCR output
+        self.process_ocr_output()
 
 
     def _prepare_output_container(self):
@@ -371,7 +379,10 @@ class MASForm1_Generator:
         else:
 
             # AR is available for the client
-            ar = self.aged_ar_class.df_processed_long_lcy[["Name", "Value (LCY)"]]
+            self.fy_end_month = self.client_class.retrieve_fy_end_date(self.fy).month
+            ar = self.aged_ar_class.df_processed_long_lcy
+            ar = ar[ar["Month"] == self.fy_end_month]
+            ar = ar[["Name", "Value (LCY)"]]
             
             # Convert input string to list and strip the leading/trailing spaces
             answer = self.user_inputs.at["trade_debt_fund_mgmt", "Answer"]
@@ -412,13 +423,13 @@ class MASForm1_Generator:
         varname = "current_liab_trade_cred_fund_mgmt"
         
         answer = self.user_inputs.at["trade_cred_fund_mgmt", "Answer"]
-        fundmgmt_cred = -int(answer)
+        fundmgmt_cred = -int(float(answer))
         self.add_bal_to_template_by_varname(varname, fundmgmt_cred)
 
 
         # Other trade creditor
         answer = self.user_inputs.at["total_trade_cred", "Answer"]
-        total_trade_cred = -int(answer)
+        total_trade_cred = -int(float(answer))
         other_trade_cred = total_trade_cred-fundmgmt_cred
         varname = "current_liab_trade_cred_other_other"
         self.add_bal_to_template_by_varname(varname, other_trade_cred)
@@ -745,6 +756,38 @@ class MASForm1_Generator:
 
         self.add_bal_to_template_by_varname(varname, total, "y")
 
+    def load_output_to_lunahub(self):
+
+        self.client_number = self.client_class.retrieve_client_info("CLIENTNUMBER")
+
+        loader_class = lunahub.tables.fs_masf1_output.MASForm1Output_LoaderToLunaHub(self.outputdf,
+                                                                                     self.client_number,
+                                                                                     self.fy
+                                                                                     )
+        loader_class.main()
+
+    def process_ocr_output(self):
+
+        # luna_folderpath = r"D:\workspace\luna"
+
+        # ocr_fn = f"mas_form1_{self.client_number}_{self.fy}_alteryx_ocr.xlsx"
+        # ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+
+        # ocr_class = fsvi.mas.form1.mas_f1_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form1", luna_fp = luna_folderpath)
+        ocr_df = self.ocr_class.execute()
+
+        column_mapper = {"var_name" : "var_name",
+                         "amount"   : "Amount",
+                         "subtotal" : "Subtotal"}
+        
+        ocr_df = ocr_df[column_mapper.keys()]
+        # Map col names
+        ocr_df = ocr_df.rename(columns = column_mapper)
+
+        self.ocr_df = ocr_df
+        
+        return ocr_df
+
 
 
 if __name__ == "__main__":
@@ -844,7 +887,15 @@ if __name__ == "__main__":
         
         # Load aged ar class
         aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
-        
+
+        # Load client class from LunaHub
+        client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
+
+        # ocr class
+        ocr_fn = f"mas_form1_{client_number}_{fy}_alteryx_ocr.xlsx"
+        ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+        ocr_class = fsvi.mas.form1.mas_f1_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form1", luna_fp = luna_folderpath)
+
         # load user response
         user_response_class = lunahub.tables.fs_masf1_userresponse.MASForm1UserResponse_DownloaderFromLunaHub(
             client_number,
@@ -852,7 +903,8 @@ if __name__ == "__main__":
         #user_inputs = user_response_class.main()
         
         self = MASForm1_Generator(tb_class, aged_ar_class,
-                                mapper_class, fy=fy, fuzzy_match_threshold=80, 
+                                mapper_class, client_class, ocr_class,
+                                fy=fy, fuzzy_match_threshold=80, 
                                 user_inputs=user_inputs)
         
         # To test, if user_inputs parameter is not specified, it will collect user inputs interactively

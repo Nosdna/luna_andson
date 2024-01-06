@@ -157,15 +157,26 @@ class AgedReceivablesReader_Format1:
         # Get attr
         df0 = self.df0.copy()
                
-        # Get meta data
-        meta_data = pd.Series({
-            df0.at[r, "A"]: df0.at[r, "B"]
-            for r in range(1, 4)
-            })
-               
+        # Get attr
+        df0 = self.df0.copy()
+                             
         # filter out main data
         df_processed = pyeasylib.pdlib.get_main_table_from_df(
             df0, self.REQUIRED_HEADERS)
+
+        # Get meta data
+        meta_data = pd.Series({
+            df0.at[r, "A"]: df0.at[r, "B"]
+            for r in df0.index[df0.index < (df_processed.index.min()-1)]
+            })
+        
+        # Drop na index
+        meta_data = meta_data.loc[~pd.isnull(meta_data.index)]
+        
+        # drop if there is an empty row between header row and first data row
+        meta_data = meta_data.loc[
+            ~((meta_data.index == "Name") & (meta_data == "Currency"))
+            ]
 
         # get the column names
         bin_columns = [
@@ -470,12 +481,16 @@ class AgedReceivablesLoader_From_LunaHub:
     
         df = df[cols]
         self.df = df.copy()
+
+        ## SJ: added 'Month' column
+        df["Month"] = df["Date"].dt.month
         
-        # final filter
+        # final filter ## SJ: added 'Month'
         required_columns = [
             'Name', 'Currency', 'Conversion Factor', 
             'Interval (str)', 'Interval',
-            'Value (FCY)', 'Value (LCY)']
+            'Value (FCY)', 'Value (LCY)',
+            'Month']
         df = df[required_columns]
         
         self.df_processed_long_lcy = df.copy()
@@ -534,14 +549,8 @@ class AgedReceivables_QueryClass:
         
         # Value is in foreign currency. only make sense if it's lcy
         return df.pivot_table(
-            "Value (LCY)", index="Name", columns="Group", aggfunc="sum",
+            "Value (LCY)", index=["Name", "Month"], columns="Group", aggfunc="sum",
             fill_value = 0)
-    
-    def get_AR_by_new_groups_and_month(self, group_dict, mth_number):
-
-        df = self._split_AR_to_new_groups(group_dict)
-
-        return df
     
         
 if __name__ == "__main__":
@@ -557,9 +566,14 @@ if __name__ == "__main__":
     # Tester for AgedReceivablesReader_Format1
     if False:
         
-        # Specify the file location       
-        fp = "../templates/aged_receivables.xlsx"
-        sheet_name = "format1"
+        if False:
+            # Specify the file location       
+            fp = "../templates/aged_receivables.xlsx"
+            sheet_name = "format1"
+
+        if True:
+            fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
+            sheet_name = "Sheet3"
         
         # Specify the variance threshold - this validates the total column with 
         # the sum of the bins. Try to set to 0 and see what happens.
@@ -586,6 +600,10 @@ if __name__ == "__main__":
 
         # Then we get the AR by company (index) and by new bins (columns)
         ar_by_new_grouping = self.get_AR_by_new_groups(group_dict)
+
+        if False:
+            output = self.df_processed_long
+            output.to_excel(r"D:\workspace\luna\personal_workspace\tmp\mas_form2_ar_oct_2022.xlsx")
         
     
         # Test the query class
@@ -607,10 +625,10 @@ if __name__ == "__main__":
                                                   lunahub_obj = lunahub_obj)
         
     # Tester for self.get_AR_by_new_groups_and_month(self, group_dict, mth_number):
-    if True:
+    if False:
 
         client_number = 71679
-        fy = 2021
+        fy = 2022
         uploaddatetime = None #'2023-12-08 18:39:03.533'
         lunahub_obj = None
 
@@ -624,4 +642,4 @@ if __name__ == "__main__":
         self2 = self
         self = AgedReceivables_QueryClass(self.df_processed_long_lcy)
         
-        self.get_AR_by_new_groups_and_month(group_dict, 1)
+        self.get_AR_by_new_groups(group_dict)

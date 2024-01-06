@@ -43,20 +43,20 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         client_number   = 71679
         fy              = 2022
     #############################################
     
     # Default credit_quality_output fp
-    credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+    credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
     credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
     pyeasylib.create_folder_for_filepath(credit_quality_output_fp) 
 

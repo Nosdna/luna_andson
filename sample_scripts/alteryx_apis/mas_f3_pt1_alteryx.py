@@ -7,6 +7,7 @@ import os
 import sys
 import argparse
 import importlib.util
+import time
 
 # Set luna path - Load from settings.py
 if True:
@@ -43,15 +44,15 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
-        client_number = 40709
+    if False:
+        client_number = 71679
         fy = 2022
     #############################################
     
@@ -70,10 +71,18 @@ if __name__ == "__main__":
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
     # load user response
-    user_response_class = lunahub.tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
-        client_number,
-        fy)
-    user_inputs = user_response_class.main()  
+    for attempt in range(12):
+        time.sleep(5)
+        user_response_class = lunahub.tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
+            client_number,
+            fy)
+        user_inputs = user_response_class.main()
+        if user_inputs is not None:
+            break
+        elif user_inputs is None and attempt == 11:
+            raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
+        else:
+            continue
    
     
     # Current fy    
@@ -95,10 +104,18 @@ if __name__ == "__main__":
     tb_class_prevfy = common.TBLoader_From_LunaHub(client_number, prevfy)
 
     # load user response
-    user_response_class_prevfy = lunahub.tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
-        client_number,
-        prevfy)
-    user_inputs_prevfy = user_response_class_prevfy.main()  
+    for attempt in range(12):
+            time.sleep(5)
+            user_response_class_prevfy = lunahub.tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
+                client_number,
+                prevfy)
+            user_inputs_prevfy = user_response_class_prevfy.main()
+            if user_inputs is not None:
+                break
+            elif user_inputs is None and attempt == 11:
+                raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
+            else:
+                continue
     
     # Current fy    
     prevfy_class = fsvi.mas.MASForm3_Generator(

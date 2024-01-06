@@ -8,8 +8,10 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 from openpyxl.utils import column_index_from_string
 
+from copy import copy
+
 class CreditDropdownList:
-    ROW = "K2:K1048576"
+    ROW = "J2:J1048576" #TODO: Update this to not hardcode?
     
     def __init__(self, filepath):
           self.filepath = filepath
@@ -22,24 +24,56 @@ class CreditDropdownList:
       #     return self.data
     
     def create_wb(self):
-
-            wb = openpyxl.load_workbook(self.filepath)
-            ws = wb.active
-
-            # Create data validation 
             
-            _list = ["Yes", "No"]
-            dv = DataValidation(type="list", formula1='"{}"'.format(','.join(_list)))
+            if False:
+                  df = pd.read_excel(self.filepath)
+
+                  wb = openpyxl.load_workbook(self.filepath)
+                  ws = wb.active
+      
+                  col_letter = openpyxl.utils.get_column_letter(df.shape[1]+1)
+      
+                  # create new col and format header
+                  ws[f'{col_letter}1'] = f'Declare for current FY?'
+                  old_cell = ws['A1']
+                  new_cell = ws[f'{col_letter}1']
+                  new_cell.border = copy(old_cell.border)
+                  new_cell.font = copy(old_cell.font)
             
-            # Error message
-            dv.error ='Your entry is not in the list'
-            dv.errorTitle = 'Invalid Entry'
+                  dv = DataValidation(type     = "list",
+                                    formula1 = '"Yes, No"',
+                                    allow_blank =True
+                                    )
+                  
+                  # Only add a last column if df has data
+                  if df.shape[0] > 0:    
+                        dv.add(f'{col_letter}2:{col_letter}{df.shape[0] + 1}')
+                        ws.add_data_validation(dv)
+                  else:
+                        pass
 
-            ws.add_data_validation(dv)
+                  wb.save(self.filepath)
+                  wb.close()
 
-            dv.add(CreditDropdownList.ROW)
+            if True:
+                  wb = openpyxl.load_workbook(self.filepath)
+                  ws = wb.active
 
-            wb.save(self.filepath) 
+                  # Create data validation 
+                  
+                  _list = ["Yes", "No"]
+                  dv = DataValidation(type="list", formula1='"{}"'.format(','.join(_list)))
+                  
+                  # Error message
+                  dv.error ='Your entry is not in the list'
+                  dv.errorTitle = 'Invalid Entry'
+
+                  
+                  ws.add_data_validation(dv)
+
+                  dv.add(CreditDropdownList.ROW)
+
+                  wb.save(self.filepath) 
     
     def read_wb(self):
             

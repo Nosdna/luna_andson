@@ -7,6 +7,7 @@ import re
 from fuzzywuzzy import fuzz, process
 import sys
 import logging
+from datetime import datetime
 
 # Initialise logger
 logger = logging.getLogger()
@@ -35,6 +36,7 @@ class MASForm2_Generator_Part2:
                  temp_fp,
                  client_number,
                  fy = 2022,
+                 current_quarter_end_date = '2022-12-31',
                  user_inputs = None):
         
         
@@ -47,6 +49,7 @@ class MASForm2_Generator_Part2:
         self.temp_fp                    = temp_fp
         self.client_number              = client_number
         self.fy                         = fy
+        self.current_quarter_end_date   = current_quarter_end_date
         self.user_inputs                = user_inputs
 
         self.main()
@@ -89,6 +92,8 @@ class MASForm2_Generator_Part2:
         self.column_mapper()
         self.output_excel()
         self.output_excel_trr()
+
+        self.load_output_to_lunahub()
 
     def _prepare_output_container(self):
 
@@ -136,8 +141,6 @@ class MASForm2_Generator_Part2:
 
     def map_f1_balances(self):
         filtered_df = self.get_f1_balances().copy()
-        # to delete
-        print(filtered_df)
 
         total_balance = 0
         varname = "current_liab_redeemable_pref_share, noncurrent_liab_redeemable_pref_share"
@@ -148,18 +151,12 @@ class MASForm2_Generator_Part2:
                 amt = arow["Balance"] 
                 total_balance += amt
                 # Map amt to Template 
-                self.add_bal_to_template_by_varname(varname, total_balance)  
-                # to delete
-                print(f" Mapped {name} : {amt}")  
+                self.add_bal_to_template_by_varname(varname, total_balance) 
             
             else:
                 amt = arow["Balance"]
                 # Map amt to Template  
-                self.add_bal_to_template_by_varname(name, amt) 
-                # to delete
-                print(f" Mapped {name} : {amt}")   
-        
-        print(f" Mapped {varname} : {total_balance}") 
+                self.add_bal_to_template_by_varname(name, amt)
 
 
     def _filter_gl(self, month_end):
@@ -247,17 +244,13 @@ class MASForm2_Generator_Part2:
         varname = "upl_div_declared"
         # Dividend GL movement 
         month_end, first_month, second_month, third_month = self.gl_ageing()
-        print()
-        
+
         div = third_month[third_month["L/S"]== 6900.4]
         div = div[div["Name"].str.contains("Dividend", case=False)]
         div_declared = div["GL Movement"].sum()
 
         # Map amt to Template  
         self.add_bal_to_template_by_varname(varname, div_declared) 
-            
-        # to delete
-        print(f" Mapped {varname} : {div_declared}")    
     
     def map_future_tax_benefits(self):
         varname = "dfr_future_incometax_benefits"
@@ -267,10 +260,7 @@ class MASForm2_Generator_Part2:
         future_tax_benefits = ftb["Value"].sum()
 
         # Map amt to Template  
-        self.add_bal_to_template_by_varname(varname, future_tax_benefits) 
-            
-        # to delete
-        print(f" Mapped {varname} : {future_tax_benefits}")   
+        self.add_bal_to_template_by_varname(varname, future_tax_benefits)
     
     def map_base_capital(self):
     
@@ -284,9 +274,6 @@ class MASForm2_Generator_Part2:
         
         puc_balance = self.outputdf.loc[puc_ord_shares_row:puc_unappr_profit_or_loss_row, "Balance"].sum()
 
-        print(puc_balance)
-        print(type(puc_balance))
-
         # Less:
         upl_div_declared_varname = "upl_div_declared"
         upl_div_declared_row = self.mapper_class.varname_to_index.at[upl_div_declared_varname]
@@ -298,9 +285,6 @@ class MASForm2_Generator_Part2:
 
         # Amt (base capital = puc + reserve fund - upl)
         base_capital = puc_balance - upl_balance
-        print(base_capital)
-        print(type(base_capital))
-
 
         # Net head office funds 
         puc_net_head_office_funds_varname = "puc_net_head_office_funds"
@@ -309,8 +293,6 @@ class MASForm2_Generator_Part2:
 
         # Total Base Capital or Net Head Office Funds 
         total_base_capital_nhof = base_capital + puc_net_head_office_funds
-        print(total_base_capital_nhof)
-        print(type(total_base_capital_nhof))
 
         based_capital_varname = "base_capital"
         bc_total_base_capital_varname = "bc_total_base_capital_nhof"
@@ -320,11 +302,6 @@ class MASForm2_Generator_Part2:
         self.add_bal_to_template_by_varname(based_capital_varname, base_capital)                    # Base Capital
         self.add_bal_to_template_by_varname(bc_total_base_capital_varname, total_base_capital_nhof) # Total Base capital or Net Head Office Funds
         self.add_bal_to_template_by_varname(fr_base_capital_nhof_varname, total_base_capital_nhof)  # (1) Base capital or Net Head Office Funds  
-
-        # to delete
-        print(f" Mapped {based_capital_varname} : {base_capital}")  
-        print(f" Mapped {bc_total_base_capital_varname} : {total_base_capital_nhof}")  
-        print(f" Mapped {fr_base_capital_nhof_varname} : {total_base_capital_nhof}")  
 
     def collect_manual_inputs(self):
         '''
@@ -374,9 +351,6 @@ class MASForm2_Generator_Part2:
 
         # Map amt to Template  
         self.add_bal_to_template_by_varname(varname, unsecured_rlt_corp) 
-            
-        # to delete
-        print(f" Mapped {varname} : {unsecured_rlt_corp}")   
 
     def map_other_unsecured_loans(self):
 
@@ -395,10 +369,7 @@ class MASForm2_Generator_Part2:
             other_unsecured_loans = tb_df[tb_df["Account No"].isin(acc_no)]["Value"].sum()
 
         # Map amt to Template  
-        self.add_bal_to_template_by_varname(varname, other_unsecured_loans) 
-            
-        # to delete
-        print(f" Mapped {varname} : {other_unsecured_loans}")   
+        self.add_bal_to_template_by_varname(varname, other_unsecured_loans)
 
 
 ########## 3 months temp df of Deductions from Financial Resources for AA (c) Deductions from Financial Resources 
@@ -442,7 +413,6 @@ class MASForm2_Generator_Part2:
         # first_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce') 
 
         deductions_df = self.deductions_df.copy()
-        # print(deductions_df)
 
         if type == None:
             oct = first_month[first_month["L/S"].isin(acc_list)]["Ending Balance"].sum()
@@ -464,15 +434,12 @@ class MASForm2_Generator_Part2:
             deductions_df.at[indexrow, self.col_name_1] = oct
             deductions_df.at[indexrow, self.col_name_2] = nov
 
-            print(oct, nov)
-
 
         elif type == "Cash":
 
             depo = self.verify_credit_quality()
             
             accounts = depo[depo["Credit Quality Grade 1?"]=="Yes"]["Account No"].to_list()
-            print(accounts)
 
             # Get ending petty cash / cash in hand balance for 3 months
             cash = first_month[first_month["L/S"].isin(acc_list)]
@@ -509,8 +476,6 @@ class MASForm2_Generator_Part2:
         total_deductions = self.deductions_df.iloc[:,-3:].sum()
 
         self.deductions_df.loc[fr_total_deductions_row, self.deductions_df.columns[-3:]] = total_deductions
-        
-        print(self.deductions_df)
         return self.deductions_df
 
     def map_financial_resources(self):
@@ -518,8 +483,6 @@ class MASForm2_Generator_Part2:
         fr_base_capital_nhof_varname = "fr_base_capital_nhof"
         fr_base_capital_nhof_row  = self.mapper_class.varname_to_index.at[fr_base_capital_nhof_varname]
         fr_base_capital = self.outputdf.loc[fr_base_capital_nhof_row, "Balance"]
-        print(fr_base_capital)
-        print(type(fr_base_capital))
 
         # Get Add items (Base Capital or Net Head Funds)
         puc_pref_share_cumulative_varname = "puc_pref_share_cumulative"
@@ -528,8 +491,6 @@ class MASForm2_Generator_Part2:
         bc_cltv_impairment_allowance_varname = "bc_cltv_impairment_allowance"
         bc_cltv_impairment_allowance_row = self.mapper_class.varname_to_index.at[bc_cltv_impairment_allowance_varname]
         bc_sum_balance = self.outputdf.loc[puc_pref_share_cumulative_row:bc_cltv_impairment_allowance_row, "Balance"].sum()
-        print(bc_sum_balance)
-        print(type(bc_sum_balance))
         
         # Get Less items (deductions from Financial Resources)
         dfr_intangible_assets_varname = "noncurrent_asset_goodwill_ia"
@@ -539,8 +500,6 @@ class MASForm2_Generator_Part2:
         dfr_other_assets_nonconvertible_cash_row = self.mapper_class.varname_to_index.at[dfr_other_assets_nonconvertible_cash_varname]
 
         fr_sum_balance = self.outputdf.loc[dfr_intangible_assets_row:dfr_other_assets_nonconvertible_cash_row, "Balance"].sum()
-        print(fr_sum_balance)
-        print(type(fr_sum_balance))
 
         # Amt (fr = bc + add items - less items) 
         fr = fr_base_capital + bc_sum_balance - fr_sum_balance 
@@ -552,10 +511,6 @@ class MASForm2_Generator_Part2:
         # Map amt to Template  
         self.add_bal_to_template_by_varname(fr_total_deductions_varname, fr_sum_balance) # Total Deductions from Financial Resources
         self.add_bal_to_template_by_varname(varname, fr)                                 # Financial Resources or Adjusted Net Head Office Funds ("FR")
-            
-        # to delete
-        print(f" Mapped {fr_total_deductions_varname} : {fr_sum_balance}")   
-        print(f" Mapped {varname} : {fr}")   
 
 
 #### (III) Total Risk Requirement
@@ -673,7 +628,6 @@ class MASForm2_Generator_Part2:
                     name = row["var_name"]
                     amt = row["Amount"]
                     if name in varname:
-                        print(name, varname)
                         awp_template.at[i,str(self.fy-year_index)] += amt
         
         
@@ -692,8 +646,6 @@ class MASForm2_Generator_Part2:
                     continue
                 row_name = row_awp["Annual gross income ="] 
                 if(row_name == "- total revenue as per reported in respective year's Form 3 ** (previously Form 6)"):
-                    print("HELLO")
-                    print(awp_template.loc[i, str(self.fy-year_index)])
                     rev_total_revenue_amt = awp_template.loc[i, str(self.fy-year_index)]
                 else:
                     less_amt += awp_template.loc[i, str(self.fy-year_index)]
@@ -723,10 +675,7 @@ class MASForm2_Generator_Part2:
 
         # Map amt to Template  
         operational_varname = "orr_operational"
-        self.add_bal_to_template_by_varname(operational_varname, orr) 
-
-        # to delete
-        print(f" Mapped {operational_varname} : {orr}")   
+        self.add_bal_to_template_by_varname(operational_varname, orr)
 
     def map_total_operational_rr(self):
         # Get OOR amt & OORR from Template
@@ -742,14 +691,10 @@ class MASForm2_Generator_Part2:
             other_operational = 0
 
         total_orr = operational + other_operational
-        print(total_orr)
 
         # Map amt to Template  
         total_operational_varname = "trr_total_operational_risk_req"
-        self.add_bal_to_template_by_varname(total_operational_varname, total_orr) 
-
-        # to delete
-        print(f" Mapped {total_operational_varname} : {total_orr}") 
+        self.add_bal_to_template_by_varname(total_operational_varname, total_orr)
 
     def map_total_risk_requirement(self):
         
@@ -760,10 +705,7 @@ class MASForm2_Generator_Part2:
 
         # Map amt to Template  
         total_risk_req_varname = "ttr_total_risk_req"
-        self.add_bal_to_template_by_varname(total_risk_req_varname, total_orr) 
-
-        # to delete
-        print(f" Mapped {total_risk_req_varname} : {total_orr}") 
+        self.add_bal_to_template_by_varname(total_risk_req_varname, total_orr)
         
     def map_fr_trr_ratio(self):
         # Get FR amt from Template
@@ -782,10 +724,7 @@ class MASForm2_Generator_Part2:
 
         # Map amt to Template  
         fr_trr_ratio_varname = "ttr_fr_trr_ratio"
-        self.add_bal_to_template_by_varname(fr_trr_ratio_varname, ratio) 
-
-        # to delete
-        print(f" Mapped {fr_trr_ratio_varname} : {ratio}") 
+        self.add_bal_to_template_by_varname(fr_trr_ratio_varname, ratio)
     
 #### (IV) Adjusted Assets 
 
@@ -801,14 +740,6 @@ class MASForm2_Generator_Part2:
         aa_df = self.mapper_class.df_processed.copy()
         aa_df = aa_df.loc[on_balance_assets_row:aa_adjusted_assets_row]
         aa_df = aa_df.iloc[:, 0:5]
-
-        ## ADDED BY SJ: taken from self.create_deductions_tempdf in Part1 ##
-        if False:
-            month_end = fy_end_date.month
-
-            self.col_name_3 = calendar.month_abbr[month_end] + '-'+ str(fy)[-2:] # e.g. Dec
-            self.col_name_2 = calendar.month_abbr[month_end-2] + '-'+ str(fy)[-2:]  # e.g.Nov
-            self.col_name_1 = calendar.month_abbr[month_end-1] + '-'+ str(fy)[-2:] # e.g.Oct
 
         aa_df.rename(columns={"Amount": self.col_name_3}, inplace=True) 
         col_names = aa_df.columns.tolist()
@@ -828,7 +759,6 @@ class MASForm2_Generator_Part2:
     def map_aa_df(self):
         month_end, first_month, second_month, third_month = self.gl_ageing()
         aa_df = self.aa_df.copy()
-        print(aa_df)
 
         # On Balance sheet assets
         # from GL
@@ -882,8 +812,6 @@ class MASForm2_Generator_Part2:
         # Cash and Deposit credit quality grade 1
 
         cash, depo = self._map_tempdf_by_ls([5000], "cash", type="Cash")
-        print(cash)
-        print(depo)
 
         aa_corp_own_cash_cashequiv_varname = "aa_corp_own_cash_cashequiv"
         aa_corp_own_cash_cashequiv_row = self.mapper_class.varname_to_index.at[ aa_corp_own_cash_cashequiv_varname]
@@ -902,32 +830,31 @@ class MASForm2_Generator_Part2:
 
 
 #### AR processing for fees_receivables 
-    def arprocessing(self, aged_receivables_fp, sheet_name):
-        # # Load the AR class
-        # aged_ar_class = common.AgedReceivablesReader_Format1(aged_receivables_fp, 
-        #                                                 sheet_name = sheet_name, # Set the sheet name
-        #                                                 variance_threshold = 0.1) # 1E-9) # To relax criteria if required.
+    
+    def _aged_df_filter_by_month(self, df, month_number):
+
+        df = df.reset_index("Month")
+        df = df[df["Month"] == month_number]
+        df = df.drop("Month", axis = 1)
         
+        return df
         
+    def update_fees_receivables_tempdf(self):
+
+        # To get the accounts receivables data for each month (already in SGD)      
+        fy_end_month = self.client_class.retrieve_fy_end_date(self.fy).month
+        self.fy_end_month = fy_end_month
+
         aged_group_dict = {"0-90": ["0 - 30", "31 - 60", "61 - 90"],
-                           ">90": ["91 - 120", "121 - 150", "150+"]}
-        
+                        ">90": ["91 - 120", "121 - 150", "150+"]}
+    
         # Then we get the AR by company (index) and by new bins (columns)
         aged_df_by_company = self.aged_ar_class.get_AR_by_new_groups(aged_group_dict)
         self.aged_df_by_company = aged_df_by_company
 
-        return self.aged_df_by_company
-        
-    def update_fees_receivables_tempdf(self):
-
-        # To get the accounts receivables data for each month (already in SGD)
-        if False: #TODO: Check with D and JW what the logic is for this
-            thirdmonth = self.ar_class
-        if True:
-            aged_receivables_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\Form 1\f1 input data\clean_AR_listing.xlsx"
-            thirdmonth = self.arprocessing(aged_receivables_fp,sheet_name = 0)
-            secondmonth = self.arprocessing(aged_receivables_fp,sheet_name = 1)
-            firstmonth = self.arprocessing(aged_receivables_fp, sheet_name = 2)
+        thirdmonth = self._aged_df_filter_by_month(aged_df_by_company, fy_end_month)
+        secondmonth = self._aged_df_filter_by_month(aged_df_by_company, fy_end_month - 1)
+        firstmonth = self._aged_df_filter_by_month(aged_df_by_company, fy_end_month - 2)
 
         # This company is non-CLMS, so need to remove from the computation
         answer = self.user_inputs.at["non_clms", "Answer"]
@@ -939,17 +866,12 @@ class MASForm2_Generator_Part2:
         firstmonth_amt = firstmonth[~firstmonth.index.isin(non_clms)]["0-90"].sum()     #1440337.46
 
         amt_list = [firstmonth_amt, secondmonth_amt, thirdmonth_amt]
-        print(amt_list)
-        print(type(amt_list[0]))
 
         # Less payment on behalf 
         answer = self.user_inputs.at["payment_on_behalf", "Answer"]
         paymt_behalf = answer.split(",") 
 
-        print(paymt_behalf)
-        print(type(paymt_behalf))
         paymt_behalf = [-float(x) for x in paymt_behalf] # convert to float and make it negative
-        print(paymt_behalf)
 
 
         fees_receivables_varname="aa_fee_receivables_cis_cef_ca_within3mths"
@@ -960,8 +882,6 @@ class MASForm2_Generator_Part2:
 
         for i, amt in enumerate(amt_list):
             self.aa_df.loc[fees_receivables_row, self.aa_df.columns[-3 + i]] += amt
-    
-        print(self.aa_df)
     
     def update_adjusted_asset_tempdf(self):
         
@@ -977,23 +897,15 @@ class MASForm2_Generator_Part2:
 
         fees_receivables_varname="aa_fee_receivables_cis_cef_ca_within3mths"
         fees_receivables_row = self.mapper_class.varname_to_index.at[fees_receivables_varname]
-
-        print(aa_adjusted_assets_row)
-        print(off_balance_assets_row)
-        print(aa_fr_total_deductions_row)
-
       
         # Sum part 1(a) to (b)
         bal_items = self.aa_df.loc[:off_balance_assets_row, :].sum(axis = 0, numeric_only = True)  
-        print(bal_items)
 
         # Sum part 1(c) to 1(f)
         remaining_items = self.aa_df.loc[aa_fr_total_deductions_row:fees_receivables_row, :].sum(axis = 0, numeric_only = True)
-        print(remaining_items)
 
         # Adjusted assets = sum of 1(a,b) - sum of 1(c-f)
         total = bal_items - remaining_items
-        print(total)
         
         # Map Adjusted asset amt to aa_df
         self.aa_df.loc[aa_adjusted_assets_row, self.aa_df.columns[-3:]] = total 
@@ -1003,9 +915,6 @@ class MASForm2_Generator_Part2:
 
         # Save as attr
         self.avg_adj_asset = avg_adj_asset
-
-        print(avg_adj_asset)
-        print(self.aa_df) 
 
     def map_adjusted_asset(self):
 
@@ -1031,9 +940,6 @@ class MASForm2_Generator_Part2:
         # Map amt to Template  
         self.add_bal_to_template_by_varname(aa_avg_adjusted_assets_varname, self.avg_adj_asset)
 
-        # to delete
-        print(f" Mapped {aa_avg_adjusted_assets_varname} : {self.avg_adj_asset}") 
-
     def map_aa_threshold(self):
         # Determine Adjusted Assets Threshold (5* TFR or $10M)
         # Get tfr from Template
@@ -1041,18 +947,12 @@ class MASForm2_Generator_Part2:
         fr_row = self.mapper_class.varname_to_index.at[fr_varname]
         fr = self.outputdf.at[fr_row, "Balance"]
 
-        print(fr)
-        print(fr*5)
         threshold = min(5*(fr), 10000000)
-        print(threshold)
 
         aa_adjusted_assets_threshold_varname = "aa_adjusted_assets_threshold"        
        
         # Map amt to Template  
         self.add_bal_to_template_by_varname(aa_adjusted_assets_threshold_varname, threshold)
-
-        # to delete
-        print(f" Mapped {aa_adjusted_assets_threshold_varname} : {threshold}") 
 
     def column_mapper(self):
 
@@ -1102,6 +1002,11 @@ class MASForm2_Generator_Part2:
         # Get workbook active sheet object
         sheet = wb[ws_name]
 
+        # Input current quarter period end date
+        current_quarter_end_date = self.current_quarter_end_date
+        current_quarter_end_date_dt_obj = datetime.strptime(current_quarter_end_date, '%Y-%m-%d')
+        sheet["F3"].value = current_quarter_end_date_dt_obj
+        self.current_quarter_end_date_dt_obj = current_quarter_end_date_dt_obj
 
         # first row (on-balance sheet assets)
         first_row = list(aa_df.iloc[0, -3:])
@@ -1134,7 +1039,6 @@ class MASForm2_Generator_Part2:
 
         # fifth row (deductions from FR)
         fifth_row = list(aa_df.iloc[3, -3:])
-        print(fifth_row)
         fifth_row = list(map(lambda x: -float(x), fifth_row)) # convert to float and make it negative
         #Inserting values into celss D15:f15
         for col, value in zip(columns, fifth_row):
@@ -1170,11 +1074,8 @@ class MASForm2_Generator_Part2:
         # 5*FR
         fr_financial_resources_anhof_varname = "fr_financial_resources_anhof"
         fr_financial_resources_anhof_row = self.mapper_class.varname_to_index.at[fr_financial_resources_anhof_varname]
-        print(fr_financial_resources_anhof_row)
 
         fr = self.outputdf.at[fr_financial_resources_anhof_row, "Balance"]
-
-        print(fr)
         sheet['I26'] = float(fr)*5
 
         # Adjusted assets threshold 
@@ -1183,7 +1084,7 @@ class MASForm2_Generator_Part2:
         # Has AAA exceeded the above threshold?
         sheet['I31']= '=IF((I21<I26)*(I21<I27),"No","Yes")'
         
-        awp_fn = f"mas_f2_{self.client_number}_{self.fy}_awp.xlsx"
+        awp_fn = f"mas_form2_{self.client_number}_{self.fy}_awp.xlsx"
         awp_fp = os.path.join(self.temp_fp, awp_fn)
         self.awp_fp = awp_fp
 
@@ -1194,7 +1095,7 @@ class MASForm2_Generator_Part2:
         # template_fp = r"D:\workspace\luna\parameters\mas_f2_awp_template.xlsx"
         ws_name = "trr"
 
-         # To open the workbook 
+        # To open the workbook 
         # workbook object is created
         wb = openpyxl.load_workbook(self.awp_fp)
         
@@ -1205,6 +1106,9 @@ class MASForm2_Generator_Part2:
         # datahub = pd.read_excel(self.output_wp_fp)
         f1_output = lunahub.tables.fs_masf1_output.MASForm1Output_LoaderFromLunaHub(self.client_number, self.fy)
         datahub_currentfy = f1_output.main()
+
+        sheet["D4"].value = self.current_quarter_end_date_dt_obj
+        sheet["E76"].value = int(self.fy)- 1
         
     ###For current year
 
@@ -1220,7 +1124,6 @@ class MASForm2_Generator_Part2:
         # unappropriated profit or loss
         puc_unappr_profit_or_loss = datahub_currentfy.at[5, "Balance"]
         sheet["I12"] =  puc_unappr_profit_or_loss
-        print(puc_unappr_profit_or_loss)
 
         # dividend declared, interim loss 
         puc_less_list = ["upl_div_declared", "upl_interim_loss"]
@@ -1232,7 +1135,6 @@ class MASForm2_Generator_Part2:
         # Net head office funds 
         puc_net_head_office_funds = datahub_currentfy.at[9, "Balance"]
         sheet["I17"] = puc_net_head_office_funds
-        print(puc_net_head_office_funds)
 
         # Base Capital/Net Head Office Funds 
         sheet["I19"] =  "=SUM(I8:I17)"
@@ -1371,6 +1273,14 @@ class MASForm2_Generator_Part2:
             self.outputdf.to_excel(output_fp)
             logger.info(f"Output saved to {output_fp}.")
 
+    def load_output_to_lunahub(self):
+
+        loader_class = lunahub.tables.fs_masf2_output.MASForm2Output_LoaderToLunaHub(self.outputdf,
+                                                                             self.client_number,
+                                                                             self.fy
+                                                                             )
+        loader_class.main()
+
 if __name__ == "__main__":
 
     # Get the luna folderpath 
@@ -1385,6 +1295,7 @@ if __name__ == "__main__":
     if True:
         client_number = 71679
         fy = 2022
+        current_quarter_end_date = '30/06/2022'
        
     ### AGED RECEIVABLES ###
     # Load AR from file
@@ -1405,7 +1316,6 @@ if __name__ == "__main__":
         # Then we get the AR by company (index) and by new bins (columns)
         aged_df_by_company = aged_ar_class.get_AR_by_new_groups(aged_group_dict)
 
-        # print(aged_df_by_company)
     # Load AR from LunaHub
     if True:
         aged_ar_class = common.AgedReceivablesLoader_From_LunaHub(client_number, fy)
@@ -1487,7 +1397,7 @@ if __name__ == "__main__":
         settings = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(settings)
 
-        credit_quality_output_fn = "mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+        credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
         credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
  
     self = MASForm2_Generator_Part2(tb_class,
@@ -1499,6 +1409,7 @@ if __name__ == "__main__":
                                     settings.TEMP_FOLDERPATH,
                                     client_number,
                                     fy,
+                                    current_quarter_end_date,
                                     user_inputs = user_inputs
                                     )
     

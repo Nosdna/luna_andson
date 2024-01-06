@@ -7,6 +7,7 @@ import os
 import sys
 import argparse
 import importlib.util
+import time
 
 # Set luna path - Load from settings.py
 if True:
@@ -42,16 +43,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--client_number", required=True)
     parser.add_argument("--client_fy", required=True)
+    parser.add_argument("--aic_name", required=True)
+    parser.add_argument("--mic_name", required=True)
     
     # Parse the information
     if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = args.client_fy
+        aic_name = args.aic_name
+        mic_name = args.mic_name
         
+    #############################################
+    ## FOR DEBUGGING ONLY ##
     if False:
-        client_number = 71679
-        fy = 2022
+        client_number   = 71679
+        fy              = 2022
+        aic_name        = "John Smith"
+        mic_name        = "Jane Doe"
+    #############################################
+
+    # Get the luna folderpath 
+    luna_init_file = luna.__file__
+    luna_folderpath = os.path.dirname(luna_init_file)
 
     # Load mapping file
     mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  
@@ -59,6 +73,9 @@ if __name__ == "__main__":
 
     # Load tb class from LunaHub
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
+
+    # Load client class from LunaHub
+    client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
     
     # Load aged ar class
     try:
@@ -69,33 +86,63 @@ if __name__ == "__main__":
         else:
             raise Exception (e)
 
+    if True:  
+        # ocr class
+        ocr_fn = f"mas_form1_{client_number}_{fy}_alteryx_ocr.xlsx"
+        ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+        ocr_class = fsvi.mas.form1.mas_f1_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form1", luna_fp = luna_folderpath)
+
     # load user response
-    user_response_class = lunahub.tables.fs_masf1_userresponse.MASForm1UserResponse_DownloaderFromLunaHub(
-        client_number,
-        fy)
-    user_inputs = user_response_class.main()
+    for attempt in range(12):
+        time.sleep(5)
+        user_response_class = lunahub.tables.fs_masf1_userresponse.MASForm1UserResponse_DownloaderFromLunaHub(
+            client_number,
+            fy)
+        user_inputs = user_response_class.main()
+        if user_inputs is not None:
+            break
+        elif user_inputs is None and attempt == 11:
+            raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
+        else:
+            continue
     
     self = fsvi.mas.form1.MASForm1_Generator(tb_class, aged_ar_class,
-                            mapper_class, fy=fy, fuzzy_match_threshold=80, 
+                            mapper_class, client_class, ocr_class,
+                            fy=fy, fuzzy_match_threshold=80, 
                             user_inputs=user_inputs)
     
-    # Specify temp file
-    output_fn = f"mas_form1_{client_number}_{fy}.xlsx"
-    output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
-    #output_fp = pyeasylib.check_filepath(output_fp)
-    pyeasylib.create_folder_for_filepath(output_fp)    
-    self.outputdf.to_excel(output_fp)
-    
-    print (f"Saved to {output_fp}.")
-    
-    # Run OutputProcessor
-    template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
-    template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
-    final_output_fn = f"mas_form1_formatted_{client_number}_{fy}.xlsx"
-    final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
-    formatting_class = OutputFormatter(output_fp, final_output_fp)
 
-    print (f"Final output saved to {final_output_fp}.")
+    if True:
+        # Specify temp file
+        output_fn = f"mas_form1_{client_number}_{fy}.xlsx"
+        output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
+        #output_fp = pyeasylib.check_filepath(output_fp)
+        pyeasylib.create_folder_for_filepath(output_fp)    
+        self.outputdf.to_excel(output_fp)
+        
+        print (f"Saved to {output_fp}.")
+
+        # Specify OCR output file
+        ocr_fn = f"mas_form1_{client_number}_{fy}_ocr.xlsx"
+        ocr_fp = os.path.join(settings.TEMP_FOLDERPATH, ocr_fn)
+        pyeasylib.create_folder_for_filepath(ocr_fp)    
+        self.ocr_df.to_excel(ocr_fp)
+        
+        # Run OutputProcessor
+        template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
+        template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
+        final_output_fn = f"mas_form1_formatted_{client_number}_{fy}.xlsx"
+        final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
+
+        # Initialise client_class
+        client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
+
+        # Format output
+        formatting_class = OutputFormatter(output_fp, ocr_fp, final_output_fp,
+                                           client_class, aic_name, mic_name)
+
+        print (f"Final output saved to {final_output_fp}.")
+
 
     # Open output file
     if True:

@@ -1,1 +1,3 @@
 from .form1 import MASForm1_Generator
+from .mas_f1_output_formatter import OutputFormatter
+from .mas_f1_ocr_output_formatter import OCROutputProcessor

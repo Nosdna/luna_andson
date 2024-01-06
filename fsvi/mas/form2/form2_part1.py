@@ -55,20 +55,11 @@ class MASForm2_Generator:
         
         depo = depo.reindex(columns=new_cols)
 
-        
         print("Please tag if the following deposits are credit quality grade 1")
         
-        depo.to_excel(self.credit_quality_output_fp)
+        depo.to_excel(self.credit_quality_output_fp, index = False)
         dropdownlist = CreditDropdownList(self.credit_quality_output_fp)
         depo = dropdownlist.create_dropdown_list()
-
-    # def write_output(self, output_fp = None):
-        
-    #     if output_fp is None:
-    #         logger.warning(f"Output not saved as output_fp = {output_fp}.")
-    #     else:
-    #         self.outputdf.to_excel(output_fp)
-    #         logger.info(f"Output saved to {output_fp}.")
         
         
 if __name__ == "__main__":
@@ -83,7 +74,7 @@ if __name__ == "__main__":
 
     # TESTER
     if True:
-        client_number   = 71679
+        client_number   = 7167
         fy              = 2022
        
     ### TB ###

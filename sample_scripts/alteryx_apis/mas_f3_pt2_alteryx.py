@@ -42,6 +42,8 @@ if __name__ == "__main__":
 
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
+    parser.add_argument("--aic_name", required=True)
+    parser.add_argument("--mic_name", required=True)
     # parser.add_argument("--client_number", required=True)
     # parser.add_argument("--client_fy", required=True)
     # parser.add_argument("--part1_output_fp", required=True)
@@ -49,7 +51,9 @@ if __name__ == "__main__":
     
     # Parse the information
     if True:
-        args = parser.parse_args()    
+        args = parser.parse_args()
+        aic_name = args.aic_name
+        mic_name = args.mic_name
         # client_number = args.client_number
         # fy = int(args.client_fy)
         # part1_output_fp = args.part1_output_fp
@@ -58,8 +62,10 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
-        fy = 2022
-        client_number = 40709
+        fy              = 2022
+        client_number   = 40709
+        aic_name        = "John Smith"
+        mic_name        = "Jane Doe"
         # sig_acc_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_sig_accounts.xlsx"
         # part1_output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx"
         # final_output_fp =     r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
@@ -79,10 +85,11 @@ if __name__ == "__main__":
     output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
         
     # Run and output 
-    form3_part2_generator = fsvi.mas.MASForm3_Generator_Part2(
-        part1_output_fp, client_number, fy)
+    self = fsvi.mas.MASForm3_Generator_Part2(
+        part1_output_fp, client_number, fy,
+        aic_name, mic_name)
     
-    form3_part2_generator.write_output(output_fp = output_fp)
+    self.write_output(output_fp = output_fp)
 
     # Run OutputProcessor
     template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
