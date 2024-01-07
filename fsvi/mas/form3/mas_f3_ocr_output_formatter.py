@@ -23,9 +23,9 @@ class OCROutputProcessor:
         data = self.read_file()
 
         if self.form == "form1":
-            P = Form1Processor(df_to_process=data, luna_fp = self.luna_fp)
+            P = Form1Processor(df_to_process=data)
         elif self.form == "form2":
-            P = Form2Processor(df_to_process=data, luna_fp = self.luna_fp)
+            P = Form2Processor(df_to_process=data)
         elif self.form == "form3":
             P = Form3Processor(df_to_process=data, luna_fp = self.luna_fp)
         else:
@@ -44,8 +44,8 @@ class FormProcessor:
         no_of_vars_fn = "no_of_vars.xlsx"
         self.var_map_filepath = os.path.join(luna_fp, "parameters", var_map_fn)
         self.no_of_vars_filepath = os.path.join(luna_fp, "parameters", no_of_vars_fn)
-        #self.var_map_filepath = "map_to_variable.xlsx"
-        #self.no_of_vars_filepath = "no_of_vars.xlsx"
+        # self.var_map_filepath = "map_to_variable.xlsx"
+        # self.no_of_vars_filepath = "no_of_vars.xlsx"
 
     def process(self):
         
@@ -110,7 +110,7 @@ class FormProcessor:
             # extract starting parenthesis from text col
             df = self.remove_irrelevant_rows()
 
-            # parenthesis_pattern = r'^(\([^)*]{1,2}\))' # TODO: to check with Soomin and Abigail because it's not working for my file
+            parenthesis_pattern = r'^(\([^)*]{1,2}\))' # TODO: to check with Soomin and Abigail because it's not working for my file
             parenthesis_pattern = r'(\([^)*]{1,2}\))'
 
             df['Number'] = df['Alteryx OCR Output'].replace(' ', '').str.extract(parenthesis_pattern, expand=True).fillna('')
@@ -263,14 +263,25 @@ class FormProcessor:
             #set agg function for number col and group df
             agg_dict["Number_filled"] = "first"
 
-            return df.groupby('group').agg(agg_dict)
+            grouped_df = df.groupby('group').agg(agg_dict)
+
+            # remove empty rows above first parenthesis number
+            first_non_nan_index = grouped_df['Number_filled'].first_valid_index()
+            grouped_df = grouped_df.loc[first_non_nan_index:]
+
+            return grouped_df
         
+        # df = self.extract_amount()# get parenthesis numbers present in OCR result, and update no_of_var
+        # no_of_var = self.match_parenthesis_number(df)
+        # target_df = no_of_var
+
         # get expected number of vars for each parenthesis number present in OCR result
         target_no_of_var = group_by_num_present(df=target_df,
                                                 number_present_col='numbers_present',
                                                 agg_dict={'no_of_vars':'sum',
                                                           'number_lvl':'first'})
 
+        # ocr_df = self.extract_amount()
         # get count of amt present per num in OCR result
         df_no_of_var = group_by_num_present(df=ocr_df,
                                             number_present_col='Number',
@@ -281,6 +292,7 @@ class FormProcessor:
 
         # get df comparing amt present/expected
         comparison_df = target_no_of_var[['Number_filled', 'number_lvl', 'no_of_vars']].copy()
+
         comparison_df['no_of_var_present'] = df_no_of_var['no_of_var_present']
 
         return comparison_df
@@ -289,6 +301,7 @@ class FormProcessor:
                                          comparison_df, 
                                          start_level=1, 
                                          end_level=4):
+        
         result_dict = {}
 
         new_col_name = f"level{start_level}"
@@ -379,37 +392,37 @@ class FormProcessor:
         
         return self.comparison_df
     
-    def identify_missing_values(self, df): # abi 
-        # calculate cumulative sum for expected and present amts
-        df["cum_no_of_var"] = df["no_of_vars"].cumsum()
-        df["cum_no_of_var_present"] = df["no_of_var_present"].cumsum()
+    # def identify_missing_values(self, df): # abi 
+    #     # calculate cumulative sum for expected and present amts
+    #     df["cum_no_of_var"] = df["no_of_vars"].cumsum()
+    #     df["cum_no_of_var_present"] = df["no_of_var_present"].cumsum()
 
-        df["value_matches"] = df["no_of_vars"] == df["no_of_var_present"]
+    #     df["value_matches"] = df["no_of_vars"] == df["no_of_var_present"]
 
-        missing_section = False
-        for index in df.index:
-            row = df.loc[index]
+    #     missing_section = False
+    #     for index in df.index:
+    #         row = df.loc[index]
 
-            if not row['value_matches']:
+    #         if not row['value_matches']:
 
-                # flag as error only if missing cumulatively
-                if row['cum_no_of_var_present'] < row['cum_no_of_var']:
-                    missing_section = True
-                    df.loc[index, 'missing_section'] = True
+    #             # flag as error only if missing cumulatively
+    #             if row['cum_no_of_var_present'] < row['cum_no_of_var']:
+    #                 missing_section = True
+    #                 df.loc[index, 'missing_section'] = True
 
-                # flag as error UNTIL cumulative value matches
-                if missing_section:
-                    if not row['value_matches']:
-                        print("MISS")
-                        df.loc[index, 'missing_section'] = True
+    #             # flag as error UNTIL cumulative value matches
+    #             if missing_section:
+    #                 if not row['value_matches']:
+    #                     print("MISS")
+    #                     df.loc[index, 'missing_section'] = True
             
-            # restart calculation of cumulative col once value matches
-            elif missing_section and row['value_matches']: 
-                df.loc[index:, 'cum_no_of_var'] = df.loc[index:, 'no_of_vars'].cumsum()
-                df.loc[index:, 'cum_no_of_var_present'] = df.loc[index:, 'no_of_var_present'].cumsum()
-                missing_section = False
+    #         # restart calculation of cumulative col once value matches
+    #         elif missing_section and row['value_matches']: 
+    #             df.loc[index:, 'cum_no_of_var'] = df.loc[index:, 'no_of_vars'].cumsum()
+    #             df.loc[index:, 'cum_no_of_var_present'] = df.loc[index:, 'no_of_var_present'].cumsum()
+    #             missing_section = False
 
-        return df
+    #     return df
     
     def interpolate_missing_values(self, df):
         
@@ -417,17 +430,19 @@ class FormProcessor:
             return None, None
         
         comparison_df = self.comparison_df
-
+ 
         merged_df = df.merge(comparison_df[['group4', 'missing_section', 'missing_section_diff']], 
                              left_on='group', right_on='group4', how='left'
                              ).drop(columns=['group'])
+        
         merged_df['missing_group'] = (merged_df['missing_section']
                                       .ne(merged_df['missing_section'].shift())
                                       .cumsum())
-        
+                
         new_list_of_amt = []
         new_missing_identifier = []
         for chunk in merged_df['missing_group'].unique():
+            # print(chunk)
             chunk_df = merged_df[merged_df['missing_group']==chunk]
             is_missing_section = chunk_df['missing_section'].all()
 
@@ -470,8 +485,6 @@ class FormProcessor:
                        in df[['Amt1', 'Amt2']].values.flatten().tolist() 
                        if not math.isnan(val)]
         
-        print(list_of_amt)
-
         missing_identifier = False
 
         new_list_of_amt, new_missing_identifier = self.interpolate_missing_values(df=df)
@@ -483,9 +496,6 @@ class FormProcessor:
         no_of_amt = len(list_of_amt)
 
         if self.expected_number_of_vars != no_of_amt:
-            print("LIST OF AMT HERE")
-            print(list_of_amt)
-            print(no_of_amt)
             print(f"no_of_amt: {no_of_amt}, expected number of amt: {self.expected_number_of_vars}")
             raise Exception("Number of variables does not match expected number of variables")
         
@@ -505,9 +515,14 @@ class FormProcessor:
                    .reset_index()
                    .sort_values(by='idx')
                    .reset_index())
-        
-        self.variables = var_map[['var_name', 'amount', 
-                                  'subtotal', 'missing_identifier']].copy()
+
+        if self.form != "form3":
+            self.variables = var_map[['var_name', 'amount', 
+                                    'subtotal', 'missing_identifier']].copy()
+        else:
+            self.variables = var_map[['var_name', 'current_fy', 
+                                    'previous_fy', 'missing_identifier']].copy()
+
         self.variables.to_excel("var_map.xlsx")
 
 
@@ -532,9 +547,9 @@ class Form1Processor(FormProcessor):
 
 class Form2Processor(FormProcessor):
     
-    def __init__(self, df_to_process, luna_fp, form="form2"):
+    def __init__(self, df_to_process, form="form2"):
 
-        super().__init__(df_to_process=df_to_process, luna_fp = luna_fp, form=form)
+        super().__init__(df_to_process=df_to_process, form=form)
 
         self.strings_to_replace = ["9.00", "9-00", "9-00", "9", "99", "9 99", "9 og"] # strings to replace with 0
 
@@ -551,9 +566,9 @@ class Form2Processor(FormProcessor):
 
 class Form3Processor(FormProcessor):
     
-    def __init__(self, df_to_process, form="form3"):
+    def __init__(self, df_to_process, luna_fp, form="form3"):
 
-        super().__init__(df_to_process=df_to_process, form=form)
+        super().__init__(df_to_process=df_to_process, luna_fp = luna_fp, form=form)
 
         self.strings_to_replace = ["9.00", "9-00", "9-00", "9", "99", "9 99", "9 og"] # strings to replace with 0
 
@@ -568,7 +583,7 @@ class Form3Processor(FormProcessor):
 
         self.expected_number_of_vars = 88
 
-        self.start_text = r"^20__"
+        self.start_text = r"^\(1\)Revenue"
 
         self.end_text = "Statementbyholderofcapital"
 
@@ -596,24 +611,23 @@ if __name__ == "__main__":
         settings = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(settings)
 
+
     # from reader import OCROutputProcessor
     # from reader import Form3Processor
-    # fp1 = r'abi/data/Form1.xlsx'
-    # fp2 = r'abi/data/Form2.xlsx'
-    # fp3 = r'abi/data/Form3.xlsx'
+    fp1 = r'abi/data/Form1.xlsx'
+    fp2 = r'abi/data/Form2.xlsx'
+    fp3 = r'abi/data/Form3.xlsx'
 
-    # fp2 = r"D:\Documents\Project\Internal Projects\20231222 Code integration\fs for sijia\data\Form2.xlsx"
-    fp2 = r"D:\workspace\luna\personal_workspace\tmp\mas_form2_7167_2022_alteryx_ocr.xlsx"
-
+    fp3 = r"D:\Documents\Project\Internal Projects\20231222 Code integration\fs for sijia\data\Form3.xlsx"
+    fp3 = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_7167_2022_alteryx_ocr.xlsx"
+    
     # sheet_name = 'CrossInvest (Input)'
     # sheet_name = 'ICM Funds (Input)' 
-    # sheet_name = 'Myer Gold (Input)'
+    sheet_name = 'Myer Gold (Input)'
     sheet_name = "Sheet1"
 
-    processor = OCROutputProcessor(filepath=fp2, sheet_name=sheet_name, form="form2", luna_fp = settings.LUNA_FOLDERPATH)
+    processor = OCROutputProcessor(filepath=fp3, sheet_name=sheet_name, form="form3", luna_fp = settings.LUNA_FOLDERPATH)
     df = processor.execute()
 
-
-    # output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_f2_ocr_output.xlsx"
+    # output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_f3_ocr_output.xlsx"
     # df.to_excel(output_fp)
-

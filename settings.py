@@ -34,7 +34,7 @@ elif loginid == "gohjiawey":
     TEMP_FOLDERPATH = None         #SET HERE
 
 elif loginid == "phuasijia":
-    LUNAHUB_CONFIG_FILEPATH = r"D:\workspace\luna\personal_workspace\db\secrets.py"
+    LUNAHUB_CONFIG_FILEPATH = r"D:\workspace\luna\personal_workspace\db\secret.py"
     PYEASYLIB_FOLDERPATH = r"D:\workspace\pyeasylib"
     LUNA_FOLDERPATH = r"D:\workspace\luna"
     TEMP_FOLDERPATH = r"D:\workspace\luna\personal_workspace\tmp"

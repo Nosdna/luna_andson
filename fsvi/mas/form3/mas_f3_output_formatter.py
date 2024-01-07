@@ -3,6 +3,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.styles import Font
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
+from openpyxl.formatting.rule import CellIsRule
 import pandas as pd
 import re
 from copy import copy
@@ -26,10 +27,11 @@ class OutputFormatter:
                      "target_varname_excelcol"      : "M"
                      }
 
-    def __init__(self, input_fp, output_fp, fy, client_class, aic_name = "", mic_name = ""):
+    def __init__(self, input_fp, output_fp, ocr_fp, fy, client_class, aic_name = "", mic_name = ""):
 
         self.input_fp       = input_fp
         self.output_fp      = output_fp
+        self.ocr_fp         = ocr_fp
         self.fy             = fy
         self.client_class   = client_class
         self.aic_name       = aic_name
@@ -58,14 +60,14 @@ class OutputFormatter:
     def read_files(self):
         # Read the file with the values
         self.input_df = pd.read_excel(self.input_fp)
+        self.ocr_df = pd.read_excel(self.ocr_fp)
 
     
-    def build_varname_to_values(self):
+    def build_varname_to_values(self, df):
         
-        #
-        input_df = self.input_df.copy()
+        df = df.copy()
     
-        varname_to_values = input_df[
+        varname_to_values = df[
             ["var_name", "Previous Balance", "Balance"]
             ].dropna(subset=["var_name"])
         
@@ -75,9 +77,9 @@ class OutputFormatter:
         else:
             raise Exception ("Variable name is not unique.")
                     
-        self.varname_to_values = varname_to_values.copy()
+        # self.varname_to_values = varname_to_values.copy()
         
-        return self.varname_to_values
+        return varname_to_values
     
     def _load_client_info(self):
 
@@ -190,9 +192,15 @@ class OutputFormatter:
         # Rename index of colname_to_excelcol series
         new_index = ["Header 1", "Header 2", "Header 3", "Header 4", "Previous Balance", "Balance", "var_name"]
         if colname_to_excelcol.shape[0] == len(new_index):
-            colname_to_excelcol = colname_to_excelcol.set_axis(new_index, axis = 0)        
+            colname_to_excelcol = colname_to_excelcol.set_axis(new_index, axis = 0) 
+
         # Get the data
-        varname_to_values = self.build_varname_to_values()
+        varname_to_values = self.build_varname_to_values(self.input_df)
+        self.varname_to_values = varname_to_values.copy()
+
+        # Get data from ocr
+        varname_to_values_ocr = self.build_varname_to_values(self.ocr_df)
+        self.varname_to_values_ocr = varname_to_values_ocr.copy()
 
         # Process input_df
         input_df = self.input_df
@@ -200,6 +208,7 @@ class OutputFormatter:
         input_df = input_df[input_df["var_name"].notnull()]
         input_df = input_df.set_index("var_name")
         
+        # Save column index
         prevfy_excelcol = colname_to_excelcol.at["Previous Balance"]
         currfy_excelcol = colname_to_excelcol.at["Balance"]
         header_3_excelcol = colname_to_excelcol.at["Header 3"]
@@ -272,10 +281,10 @@ class OutputFormatter:
                 templ_ws[f"{target_ls_currfy_excelcol}{row}"].value = None
 
             if templ_ws[f"{prevfy_excelcol}{row}"].value == prevfy:
-                templ_ws[f"{target_var_prevfy_excelcol}{row}"].value = f"= {target_ocr_prevfy_excelcol}{row} - {prevfy_excelcol}{row}"
+                templ_ws[f"{target_var_prevfy_excelcol}{row}"].value = f"= {target_ocr_prevfy_excelcol}{row+2} - {prevfy_excelcol}{row+2}"
 
             if templ_ws[f"{currfy_excelcol}{row}"].value == currfy:
-                templ_ws[f"{target_var_currfy_excelcol}{row}"].value = f"= {target_ocr_currfy_excelcol}{row} - {currfy_excelcol}{row}"
+                templ_ws[f"{target_var_currfy_excelcol}{row}"].value = f"= {target_ocr_currfy_excelcol}{row+2} - {currfy_excelcol}{row+2}"
 
             # Update format
             templ_ws[f"{prevfy_excelcol}{row}"].number_format = '#,##0.00'
@@ -284,6 +293,17 @@ class OutputFormatter:
             templ_ws[f"{target_var_currfy_excelcol}{row}"].number_format = '#,##0.00'
             templ_ws[f"{target_ocr_prevfy_excelcol}{row}"].number_format = '#,##0.00'
             templ_ws[f"{target_ocr_currfy_excelcol}{row}"].number_format = '#,##0.00'
+
+        for varname in varname_to_values_ocr.index:
+            prevfy_ocr = varname_to_values_ocr.at[varname, "Previous Balance"]
+            currfy_ocr = varname_to_values_ocr.at[varname, "Balance"]
+            
+            # Get the location to update
+            row = varname_to_index.at[varname]
+            
+            # Update
+            templ_ws[f"{target_ocr_prevfy_excelcol}{row}"].value = prevfy_ocr
+            templ_ws[f"{target_ocr_currfy_excelcol}{row}"].value = currfy_ocr
 
 
         self._copy_column_style(templ_ws, prevfy_excelcol, target_var_prevfy_excelcol)
@@ -325,6 +345,15 @@ class OutputFormatter:
         templ_ws[f"{target_var_currfy_excelcol}6"].font = Font(bold = True)
         templ_ws[f"{target_var_currfy_excelcol}6"].alignment = Alignment(wrapText   = True,
                                                                          horizontal = 'center')
+
+        # conditional formatting
+        redFill = PatternFill(start_color='EE1111',
+                              end_color='EE1111',
+                              fill_type='solid')
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}8:{target_var_currfy_excelcol}131",
+                                      CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}8:{target_var_currfy_excelcol}131",
+                                      CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
    
 
         templ_ws[f"{prevfy_excelcol}6"] = f"Previous year\n{int(self.fy)-1}\n$"
@@ -350,14 +379,16 @@ if __name__ == "__main__":
 
         client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
 
-        input_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
-        output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_formatted_40709_2022.xlsx"
+        input_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form3_{client_no}_{fy}.xlsx"
+        ocr_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form3_{client_no}_{fy}_ocr.xlsx"
+        output_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form3_formatted_{client_no}_{fy}.xlsx"
         
         aic_name = "John Smith"
         mic_name = "Jane Doe"
         
         self = OutputFormatter(input_fp     = input_fp,
                                output_fp    = output_fp,
+                               ocr_fp       = ocr_fp,
                                fy           = fy,
                                client_class = client_class,
                                aic_name     = aic_name,

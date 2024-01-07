@@ -63,13 +63,17 @@ if __name__ == "__main__":
     ## FOR DEBUGGING ONLY ##
     if False:
         fy              = 2022
-        client_number   = 40709
+        client_number   = 7167
         aic_name        = "John Smith"
         mic_name        = "Jane Doe"
         # sig_acc_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_sig_accounts.xlsx"
         # part1_output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx"
         # final_output_fp =     r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
+        
+    # Get the luna folderpath 
+    luna_init_file = luna.__file__
+    luna_folderpath = os.path.dirname(luna_init_file)
 
     ## Look for sig_account file
     # pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
@@ -83,12 +87,24 @@ if __name__ == "__main__":
     output_fn = f'mas_form3_{client_number}_{fy}.xlsx'
     part1_output_fp = os.path.join(settings.TEMP_FOLDERPATH, part1_output_fn)
     output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
+
+    # ocr class
+    ocr_fn = f"mas_form3_{client_number}_{fy}_alteryx_ocr.xlsx"
+    ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+    ocr_class = fsvi.mas.form3.mas_f3_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form3", luna_fp = luna_folderpath)
+
         
     # Run and output 
     self = fsvi.mas.MASForm3_Generator_Part2(
-        part1_output_fp, client_number, fy)
+        ocr_class, part1_output_fp, client_number, fy)
     
     self.write_output(output_fp = output_fp)
+
+    # Specify OCR output file
+    ocr_fn = f"mas_form3_{client_number}_{fy}_ocr.xlsx"
+    ocr_fp = os.path.join(settings.TEMP_FOLDERPATH, ocr_fn)
+    pyeasylib.create_folder_for_filepath(ocr_fp)    
+    self.ocr_df.to_excel(ocr_fp)
 
     # Initialise client_class
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
@@ -98,8 +114,8 @@ if __name__ == "__main__":
     template_fp = os.path.join(settings.LUNA_FOLDERPATH, template_fn)
     final_output_fn = f"mas_form3_formatted_{client_number}_{fy}.xlsx"
     final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
-    formatting_class = OutputFormatter(output_fp, final_output_fp, fy,
-                                       client_class, aic_name, mic_name)
+    formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp,
+                                       fy, client_class, aic_name, mic_name)
     
     
     # Open output file

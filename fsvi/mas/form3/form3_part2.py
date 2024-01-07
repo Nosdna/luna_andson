@@ -28,16 +28,17 @@ import logging
 
 class MASForm3_Generator_Part2:
 
-    def __init__(self, 
+    def __init__(self,
+                 ocr_class, 
                  df_fp,
                  client_number,
                  fy
                  ):
         
-        
-        self.outputdf_fp       = df_fp
-        self.client_number     = client_number
-        self.fy                = int(fy)
+        self.ocr_class      = ocr_class
+        self.outputdf_fp    = df_fp
+        self.client_number  = client_number
+        self.fy             = int(fy)
         
         self.main()
 
@@ -48,6 +49,8 @@ class MASForm3_Generator_Part2:
         self.update_sig_acct()
 
         self.load_output_to_lunahub()
+
+        self.process_ocr_output()
 
     def read_outputdf(self):
 
@@ -185,9 +188,30 @@ class MASForm3_Generator_Part2:
                                                                              self.fy
                                                                              )
         loader_class.main()
+
+    def process_ocr_output(self):
+
+        ocr_df = self.ocr_class.execute()
+
+        column_mapper = {"var_name"     : "var_name",
+                         "previous_fy"  : "Previous Balance",
+                         "current_fy"   : "Balance"}
+        
+        ocr_df = ocr_df[column_mapper.keys()]
+        # Map col names
+        ocr_df = ocr_df.rename(columns = column_mapper)
+
+        self.ocr_df = ocr_df
+        
+        return ocr_df
     
 
 if __name__ == "__main__":
+
+    # Get the luna folderpath 
+    luna_init_file = luna.__file__
+    luna_folderpath = os.path.dirname(luna_init_file)
+    print (f"Your luna library is at {luna_folderpath}.")
 
     if True:
         fp_dict = {
@@ -195,13 +219,36 @@ if __name__ == "__main__":
                 'output_fp'       : r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx",
                 'final_output_fp' : r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
                 }
+    
+    if True:
+        import importlib.util
+        loginid = os.getlogin().lower()
+        if loginid == "owghimsiong":
+            settings_py_path = r'D:\Desktop\owgs\CODES\luna\settings.py'
+        elif loginid == "phuasijia":
+            settings_py_path = r'D:\workspace\luna\settings.py'
+        else:
+            raise Exception (f"Invalid user={loginid}. Please specify the path of settings.py.")
+        
+        # Import the luna environment through settings.
+        # DO NOT TOUCH
+        spec = importlib.util.spec_from_file_location("settings", settings_py_path)
+        settings = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(settings)
 
     if True:
         fy = 2022
-        client_number = 40709
+        client_number = 7167
         outputdf_fp = fp_dict['output_fp']
+
+        # ocr class
+        ocr_fn = f"mas_form3_{client_number}_{fy}_alteryx_ocr.xlsx"
+        ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+        ocr_class = fsvi.mas.form3.mas_f3_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form3", luna_fp = luna_folderpath)
+
+
         # sig_acc_output_fp = fp_dict['sig_acct_output_fp']
-        self = MASForm3_Generator_Part2(outputdf_fp, client_number, fy)
+        self = MASForm3_Generator_Part2(ocr_class, outputdf_fp, client_number, fy)
     
     # Output to excel
     self.outputdf.to_excel(fp_dict['final_output_fp']) 
