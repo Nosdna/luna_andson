@@ -43,32 +43,18 @@ if __name__ == "__main__":
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
     parser.add_argument("--aic_name", required=True)
-    parser.add_argument("--mic_name", required=True)
-    # parser.add_argument("--client_number", required=True)
-    # parser.add_argument("--client_fy", required=True)
-    # parser.add_argument("--part1_output_fp", required=True)
-    # parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
     if True:
         args = parser.parse_args()
         aic_name = args.aic_name
-        mic_name = args.mic_name
-        # client_number = args.client_number
-        # fy = int(args.client_fy)
-        # part1_output_fp = args.part1_output_fp
-        # final_output_fp = args.final_output_fp
 
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
         fy              = 2022
-        client_number   = 7167
+        client_number   = 3456
         aic_name        = "John Smith"
-        mic_name        = "Jane Doe"
-        # sig_acc_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_sig_accounts.xlsx"
-        # part1_output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx"
-        # final_output_fp =     r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
         
     # Get the luna folderpath 
@@ -76,7 +62,6 @@ if __name__ == "__main__":
     luna_folderpath = os.path.dirname(luna_init_file)
 
     ## Look for sig_account file
-    # pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
     pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_*_*_sig_accounts.xlsx")
     list_of_files = glob.glob(pattern)
     sig_acc_fp = max(list_of_files, key=os.path.getctime)
@@ -115,7 +100,7 @@ if __name__ == "__main__":
     final_output_fn = f"mas_form3_formatted_{client_number}_{fy}.xlsx"
     final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
     formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp,
-                                       fy, client_class, aic_name, mic_name)
+                                       fy, client_class, aic_name)
     
     
     # Open output file

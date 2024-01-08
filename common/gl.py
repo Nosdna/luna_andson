@@ -203,18 +203,38 @@ class GLLoader_From_LunaHub:
             
             if uploaddatetime is None:
                 
-                msg = f"Multiple records exist.\n\n{version_df.__repr__()}."
-                msg += "\n\nPlease set uploaddatetime."
-                
-                raise Exception (msg)
+                if True:
+                    versions = version_df["UPLOADDATETIME"]
+                    latest_version = versions.max()
+
+                    # Filter by latest
+                    df = df.copy()
+                    df_latest = df[df["UPLOADDATETIME"] == latest_version]
+                    df = df_latest
+
+                    if len(versions) > 1:
+                        msg = (
+                            f"Multiple versions for client={self.client_number} "
+                            #f"and fy={self.fy}: {versions}. "
+                            f"Took the latest = {latest_version}."
+                            )
+                        self.status = msg
+                        logger.debug(msg)
+
+                    
+                if False:
+                    msg = f"Multiple records exist.\n\n{version_df.__repr__()}."
+                    msg += "\n\nPlease set uploaddatetime."
+                    
+                    raise Exception (msg)
                 
             else:
                 
-                if isinstance(uploaddatetime, str):
-                    uploaddatetime = pd.to_datetime(uploaddatetime)
+                if isinstance(self.uploaddatetime, str):
+                    self.uploaddatetime = pd.to_datetime(self.uploaddatetime)
                 
                 # Filter
-                df = df[df["UPLOADDATETIME"] == uploaddatetime]
+                df = df[df["UPLOADDATETIME"] == self.uploaddatetime]
 
         # Map column names
         column_mapper = {

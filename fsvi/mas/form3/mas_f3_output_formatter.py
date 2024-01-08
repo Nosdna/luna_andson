@@ -35,7 +35,6 @@ class OutputFormatter:
         self.fy             = fy
         self.client_class   = client_class
         self.aic_name       = aic_name
-        self.mic_name       = mic_name
         
         # Get the template fp
         self.template_fp = os.path.join(
@@ -123,7 +122,7 @@ class OutputFormatter:
             ws.unmerge_cells(range_string=str(merge))
 
         ws.delete_rows(idx = 1, amount = 3)
-        ws.insert_rows(idx = 0, amount = 5)
+        ws.insert_rows(idx = 0, amount = 7)
 
         for merge in list(ws.merged_cells):
             ws.unmerge_cells(range_string=str(merge))
@@ -144,9 +143,10 @@ class OutputFormatter:
         date_of_analysis = datetime.now().strftime("%d/%m/%Y")
 
         dct_of_fields = {"Client name"      : self.client_name,
+                         "FY"               : self.fy,
                          "Date of analysis" : date_of_analysis,
                          "Prepared by"      : self.aic_name,
-                         "Reviewed by"      : self.mic_name
+                         "Reviewed by"      : ""
                          }
         
         for key in dct_of_fields:
@@ -171,6 +171,7 @@ class OutputFormatter:
 
         ws[f"D{row}"].value = field_value
         ws[f"D{row}"].fill = PatternFill("solid", fgColor="00FFFFFF")
+        ws[f"D{row}"].alignment = Alignment(horizontal = 'left')
         ws[f"D{row}"].border = border_style
         ws.merge_cells(f"D{row}:F{row}")
             
@@ -281,10 +282,10 @@ class OutputFormatter:
                 templ_ws[f"{target_ls_currfy_excelcol}{row}"].value = None
 
             if templ_ws[f"{prevfy_excelcol}{row}"].value == prevfy:
-                templ_ws[f"{target_var_prevfy_excelcol}{row}"].value = f"= {target_ocr_prevfy_excelcol}{row+2} - {prevfy_excelcol}{row+2}"
+                templ_ws[f"{target_var_prevfy_excelcol}{row}"].value = f"= {target_ocr_prevfy_excelcol}{row+4} - {prevfy_excelcol}{row+4}"
 
             if templ_ws[f"{currfy_excelcol}{row}"].value == currfy:
-                templ_ws[f"{target_var_currfy_excelcol}{row}"].value = f"= {target_ocr_currfy_excelcol}{row+2} - {currfy_excelcol}{row+2}"
+                templ_ws[f"{target_var_currfy_excelcol}{row}"].value = f"= {target_ocr_currfy_excelcol}{row+4} - {currfy_excelcol}{row+4}"
 
             # Update format
             templ_ws[f"{prevfy_excelcol}{row}"].number_format = '#,##0.00'
@@ -337,30 +338,30 @@ class OutputFormatter:
         self._create_header(templ_ws)
         templ_ws.title = "Form 3 (Recalculated)"
 
-        templ_ws[f"{target_var_prevfy_excelcol}6"].value = f"Previous year (Var)\n{int(self.fy)-1}\n$"
-        templ_ws[f"{target_var_prevfy_excelcol}6"].font = Font(bold = True)
-        templ_ws[f"{target_var_prevfy_excelcol}6"].alignment = Alignment(wrapText   = True,
+        templ_ws[f"{target_var_prevfy_excelcol}8"].value = f"Previous year (Var)\n{int(self.fy)-1}\n$"
+        templ_ws[f"{target_var_prevfy_excelcol}8"].font = Font(bold = True)
+        templ_ws[f"{target_var_prevfy_excelcol}8"].alignment = Alignment(wrapText   = True,
                                                                          horizontal = 'center')
-        templ_ws[f"{target_var_currfy_excelcol}6"].value = f"Current year (Var)\n{self.fy}\n$"
-        templ_ws[f"{target_var_currfy_excelcol}6"].font = Font(bold = True)
-        templ_ws[f"{target_var_currfy_excelcol}6"].alignment = Alignment(wrapText   = True,
+        templ_ws[f"{target_var_currfy_excelcol}8"].value = f"Current year (Var)\n{self.fy}\n$"
+        templ_ws[f"{target_var_currfy_excelcol}8"].font = Font(bold = True)
+        templ_ws[f"{target_var_currfy_excelcol}8"].alignment = Alignment(wrapText   = True,
                                                                          horizontal = 'center')
 
         # conditional formatting
         redFill = PatternFill(start_color='EE1111',
                               end_color='EE1111',
                               fill_type='solid')
-        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}8:{target_var_currfy_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}9:{target_var_currfy_excelcol}131",
                                       CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
-        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}8:{target_var_currfy_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}9:{target_var_currfy_excelcol}131",
                                       CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
    
 
-        templ_ws[f"{prevfy_excelcol}6"] = f"Previous year\n{int(self.fy)-1}\n$"
-        templ_ws[f"{prevfy_excelcol}6"].alignment = Alignment(wrapText   = True,
+        templ_ws[f"{prevfy_excelcol}8"] = f"Previous year\n{int(self.fy)-1}\n$"
+        templ_ws[f"{prevfy_excelcol}8"].alignment = Alignment(wrapText   = True,
                                                               horizontal = 'center')
-        templ_ws[f"{currfy_excelcol}6"] = f"Current year\n{self.fy}\n$"
-        templ_ws[f"{currfy_excelcol}6"].alignment = Alignment(wrapText   = True,
+        templ_ws[f"{currfy_excelcol}8"] = f"Current year\n{self.fy}\n$"
+        templ_ws[f"{currfy_excelcol}8"].alignment = Alignment(wrapText   = True,
                                                               horizontal = 'center')
         
 
@@ -391,7 +392,6 @@ if __name__ == "__main__":
                                ocr_fp       = ocr_fp,
                                fy           = fy,
                                client_class = client_class,
-                               aic_name     = aic_name,
-                               mic_name     = mic_name
+                               aic_name     = aic_name
                                )
         

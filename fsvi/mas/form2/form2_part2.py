@@ -32,7 +32,7 @@ class MASForm2_Generator_Part2:
     
     def __init__(self, tb_class, mapper_class, gl_class,
                  aged_ar_class, client_class, ocr_class,
-                 credit_quality_output_fp,
+                 credit_quality_output_fp, awp_fp,
                  temp_fp,
                  client_number,
                  fy = 2022,
@@ -47,6 +47,7 @@ class MASForm2_Generator_Part2:
         self.client_class               = client_class
         self.ocr_class                  = ocr_class
         self.credit_quality_output_fp   = credit_quality_output_fp
+        self.awp_fp                     = awp_fp
         self.temp_fp                    = temp_fp
         self.client_number              = client_number
         self.fy                         = fy
@@ -519,7 +520,8 @@ class MASForm2_Generator_Part2:
 
     def awp_processing(self):
         # Processing to get the annual gross income table
-        awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+        # awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+        awp_fp = self.awp_fp
         awp = pd.read_excel(awp_fp,sheet_name="2. FR+TRR")
         start = awp[awp.iloc[:,0].str.
                          contains("Definition", 
@@ -1418,11 +1420,13 @@ if __name__ == "__main__":
         credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
         credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
  
-    # ocr class
-    ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
-    ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
-    ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
+        # ocr class
+        ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
+        ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+        ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
 
+        # awp fp
+        awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
     
     self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
@@ -1431,6 +1435,7 @@ if __name__ == "__main__":
                                     client_class,
                                     ocr_class,
                                     credit_quality_output_fp,
+                                    awp_fp,
                                     settings.TEMP_FOLDERPATH,
                                     client_number,
                                     fy,

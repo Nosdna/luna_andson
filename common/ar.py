@@ -437,9 +437,31 @@ class AgedReceivablesLoader_From_LunaHub:
         # Check if there are multiple upload dates
         upload_info = df[["UPLOADDATETIME"]].drop_duplicates()
         if upload_info.shape[0] > 1:
-            raise Exception (
-                f"Multiple uploads for the data:\n\n{upload_info.__repr__()}"
-                "\n\nPlease specify the uploaddatetime during initialisation.")
+            
+            if True:
+                versions = upload_info["UPLOADDATETIME"]
+                latest_version = versions.max()
+
+                # Filter by latest
+                df = df.copy()
+                df_latest = df[df["UPLOADDATETIME"] == latest_version]
+                df = df_latest
+
+                if len(versions) > 1:
+                    msg = (
+                        f"Multiple versions for client={self.client_number} "
+                        #f"and fy={self.fy}: {versions}. "
+                        f"Took the latest = {latest_version}."
+                        )
+                    self.status = msg
+                    print(msg)
+                    # logger.debug(msg)
+
+                    
+            if False:
+                raise Exception (
+                    f"Multiple uploads for the data:\n\n{upload_info.__repr__()}"
+                    "\n\nPlease specify the uploaddatetime during initialisation.")
             
         self.df0 = df0
         self.df = df

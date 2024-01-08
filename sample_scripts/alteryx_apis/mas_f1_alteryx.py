@@ -44,7 +44,6 @@ if __name__ == "__main__":
     parser.add_argument("--client_number", required=True)
     parser.add_argument("--client_fy", required=True)
     parser.add_argument("--aic_name", required=True)
-    parser.add_argument("--mic_name", required=True)
     
     # Parse the information
     if True:
@@ -52,15 +51,13 @@ if __name__ == "__main__":
         client_number = args.client_number
         fy = args.client_fy
         aic_name = args.aic_name
-        mic_name = args.mic_name
         
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
-        client_number   = 71679
+        client_number   = 3456
         fy              = 2022
         aic_name        = "John Smith"
-        mic_name        = "Jane Doe"
     #############################################
 
     # Get the luna folderpath 
@@ -139,7 +136,7 @@ if __name__ == "__main__":
 
         # Format output
         formatting_class = OutputFormatter(output_fp, ocr_fp, final_output_fp,
-                                           client_class, aic_name, mic_name)
+                                           client_class, fy, aic_name)
 
         print (f"Final output saved to {final_output_fp}.")
 

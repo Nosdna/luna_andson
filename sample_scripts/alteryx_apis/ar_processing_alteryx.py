@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--file_format", required = True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         # client_number = args.client_number
         # fy = args.client_fy
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         # client_number = 40709
         # fy = 2022
         file_fp = r"D:\workspace\luna\personal_workspace\db\input_file.xlsx"
@@ -91,6 +91,7 @@ if __name__ == "__main__":
     
     # Map col names
     ar = ar.rename(columns = column_mapper)
+    ar["DATE"] = ar["DATE"].astype(str)
 
     # Specify temp file
     # output_fn = f"processed_ar_lunahub_{client_number}_{fy}.xlsx"

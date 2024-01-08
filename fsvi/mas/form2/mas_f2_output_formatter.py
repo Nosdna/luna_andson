@@ -26,14 +26,14 @@ class OutputFormatter:
                      "target_varname_excelcol"      : "M"
                      }
     
-    def __init__(self, input_fp, output_fp, ocr_fp, client_class, aic_name = "", mic_name = ""):
+    def __init__(self, input_fp, output_fp, ocr_fp, client_class, fy, aic_name = ""):
 
         self.input_fp       = input_fp
         self.output_fp      = output_fp
         self.ocr_fp         = ocr_fp
         self.client_class   = client_class
+        self.fy             = fy
         self.aic_name       = aic_name
-        self.mic_name       = mic_name
         
         # Get the template fp
         self.template_fp = os.path.join(
@@ -118,8 +118,8 @@ class OutputFormatter:
         for merge in list(ws.merged_cells):
             ws.unmerge_cells(range_string=str(merge))
 
-        ws.delete_rows(idx = 1, amount = 5)
-        ws.insert_rows(idx = 0, amount = 5)
+        ws.delete_rows(idx = 1, amount = 6)
+        ws.insert_rows(idx = 0, amount = 6)
 
         # for idx in range(4, 6):
         #     ws.row_dimensions[idx].hidden = True #TODO: this should be temporary
@@ -143,9 +143,10 @@ class OutputFormatter:
         date_of_analysis = datetime.now().strftime("%d/%m/%Y")
 
         dct_of_fields = {"Client name"      : self.client_name,
+                         "FY"               : self.fy,
                          "Date of analysis" : date_of_analysis,
                          "Prepared by"      : self.aic_name,
-                         "Reviewed by"      : self.mic_name
+                         "Reviewed by"      : ""
                          }
         
         for key in dct_of_fields:
@@ -170,6 +171,7 @@ class OutputFormatter:
 
         ws[f"D{row}"].value = field_value
         ws[f"D{row}"].fill = PatternFill("solid", fgColor="00FFFFFF")
+        ws[f"D{row}"].alignment = Alignment(horizontal = 'left')
         ws[f"D{row}"].border = border_style
         ws.merge_cells(f"D{row}:F{row}")
 
@@ -337,9 +339,9 @@ class OutputFormatter:
         redFill = PatternFill(start_color='EE1111',
                               end_color='EE1111',
                               fill_type='solid')
-        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}9:{target_var_subtotal_excelcol}131",
                                       CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
-        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}8:{target_var_subtotal_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}9:{target_var_subtotal_excelcol}131",
                                       CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
         
 
@@ -372,12 +374,11 @@ if __name__ == "__main__":
         client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
         
         aic_name = "John Smith"
-        mic_name = "Jane Doe"
         
         self = OutputFormatter(input_fp     = input_fp,
                                output_fp    = output_fp,
                                ocr_fp       = ocr_fp,
                                client_class = client_class,
-                               aic_name     = aic_name,
-                               mic_name     = mic_name
+                               fy           = fy,
+                               aic_name     = aic_name
                                )

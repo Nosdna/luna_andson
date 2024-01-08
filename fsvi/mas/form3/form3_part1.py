@@ -880,6 +880,9 @@ class MASForm3_Generator:
         
         final_df["Type"] = type_search
 
+        col_order = ["Account No", "Name", "L/S", "Value", "Type", "Indicator", "Group"]
+        final_df = final_df[col_order]
+
         return final_df
     
     def create_sig_acct_output(self):

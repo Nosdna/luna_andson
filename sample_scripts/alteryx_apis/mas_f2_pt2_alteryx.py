@@ -44,8 +44,8 @@ if __name__ == "__main__":
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
     parser.add_argument("--aic_name", required=True)
-    parser.add_argument("--mic_name", required=True)
     parser.add_argument("--current_qtr", required=True)
+    parser.add_argument("--awp_fp", required=False)
     # parser.add_argument("--client_number", required=True)
     # parser.add_argument("--client_fy", required=True)
     # parser.add_argument("--final_output_fp", required=True)
@@ -54,8 +54,8 @@ if __name__ == "__main__":
     if True:
         args = parser.parse_args()
         aic_name = args.aic_name
-        mic_name = args.mic_name
         current_qtr = args.current_qtr
+        awp_fp = args.awp_fp
         # client_number = args.client_number
         # fy = int(args.client_fy)
         # part1_output_fp = args.part1_output_fp
@@ -68,7 +68,6 @@ if __name__ == "__main__":
         # client_number               = 71679
         # credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
         aic_name                    = "John Smith"
-        mic_name                    = "Jane Doe"
         current_qtr                 = "2022-12-31"
         # final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
@@ -147,6 +146,10 @@ if __name__ == "__main__":
     credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
     credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn) 
     
+    # awp fp
+    awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+    
+
     self = fsvi.mas.MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
                                     gl_class,
@@ -154,6 +157,7 @@ if __name__ == "__main__":
                                     client_class,
                                     ocr_class,
                                     credit_quality_output_fp,
+                                    awp_fp,
                                     settings.TEMP_FOLDERPATH,
                                     client_number,
                                     fy,
@@ -180,7 +184,7 @@ if __name__ == "__main__":
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
 
     # Format output
-    formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp, client_class, aic_name, mic_name)
+    formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp, client_class, fy, aic_name)
 
     print (f"Final output saved to {final_output_fp}.")
 
@@ -188,6 +192,7 @@ if __name__ == "__main__":
     if True:
         import webbrowser
         webbrowser.open(final_output_fp)
+        webbrowser.open(awp_fp)
     
     
     
