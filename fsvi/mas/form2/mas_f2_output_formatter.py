@@ -4,6 +4,7 @@ from openpyxl.styles import Font
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
 from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter, column_index_from_string
 import pandas as pd
 from copy import copy
 from datetime import datetime
@@ -86,12 +87,11 @@ class OutputFormatter:
     
     def _copy_columns(self, ws,
                       src_excelcol, dst_excelcol,
-                      src_col_name, dst_col_name,
-                      dst_value = None
+                      src_col_name, dst_value = None
                       ):
         for src, dst in zip(ws[f"{src_excelcol}:{src_excelcol}"], ws[f"{dst_excelcol}:{dst_excelcol}"]):
             if src.value == src_col_name:
-                dst.value = dst_col_name
+                dst.value = src_col_name
                 dst.font = Font(bold = True)
                 src.font = Font(bold = True)
             elif src.value is not None and dst_value is None:
@@ -118,8 +118,8 @@ class OutputFormatter:
         for merge in list(ws.merged_cells):
             ws.unmerge_cells(range_string=str(merge))
 
-        ws.delete_rows(idx = 1, amount = 6)
-        ws.insert_rows(idx = 0, amount = 6)
+        ws.delete_rows(idx = 1, amount = 5)
+        ws.insert_rows(idx = 0, amount = 7)
 
         # for idx in range(4, 6):
         #     ws.row_dimensions[idx].hidden = True #TODO: this should be temporary
@@ -175,7 +175,52 @@ class OutputFormatter:
         ws[f"D{row}"].border = border_style
         ws.merge_cells(f"D{row}:F{row}")
 
+    def _standardise_number_format(self, ws, lst_of_excelcols, row):
+        for excelcol in lst_of_excelcols:
+            ws[f"{excelcol}{row}"].number_format = '#,##0.00'
 
+    def _replace_empty_value(self, ws, excelcol, row):
+        cell = ws[f"{excelcol}{row}"]
+
+        if cell.value in [999999999, '999999999']:
+            cell.value = None
+
+    def _create_var_formula(self, ws, excelcol, excelrow, val):
+        
+        cell = ws[f"{excelcol}{excelrow}"]
+
+        var_target_excelcol = self._get_col_letter_from_ref(excelcol, 2)
+        ocr_target_excelcol = self._get_col_letter_from_ref(excelcol, -2)
+        if cell.value == val:
+            ws[f"{var_target_excelcol}{excelrow}"].value = f"= {ocr_target_excelcol}{excelrow+1} - {excelcol}{excelrow+1}"
+        # TODO : excelrow+2 is wrong
+
+    def _get_col_letter_from_ref(self, ref_excelcol, mvmt):
+        ref_colno = column_index_from_string(ref_excelcol)
+        target_colno = ref_colno + int(mvmt)
+        target_excelcol = get_column_letter(target_colno)
+
+        return target_excelcol
+    
+    def _section_column_formatting(self, ws, section_name, starting_excelcol):
+        section_color_dict = {'recalculated': '00CCFFFF',
+                              'ocr'         : '00CCCCFF',
+                              'var'         : '00CCFFCC'
+                              }
+        fill_setting = PatternFill("solid", fgColor = section_color_dict.get(section_name))
+        ending_excelcol = self._get_col_letter_from_ref(starting_excelcol, 1)
+        cols = ws[f"{starting_excelcol}6:{ending_excelcol}132"] #TODO: look into how to dynamically reference rows
+        for cell in cols:
+            cell[0].fill = fill_setting
+            cell[1].fill = fill_setting
+
+    def _create_col_header_1(self, ws, excelcol, row, header_name):
+            cell = ws[f"{excelcol}{row}"]
+            cell.value = header_name
+            cell.font = Font(bold = True)
+            cell.alignment = Alignment(horizontal = 'center')
+            end_col = self._get_col_letter_from_ref(excelcol, 1)
+            ws.merge_cells(f"{excelcol}{row}:{end_col}{row}")
             
     def write_output(self):
         templ_wb = openpyxl.load_workbook(self.template_fp)
@@ -206,17 +251,18 @@ class OutputFormatter:
         varname_excelcol = colname_to_excelcol.at["var_name"]
         
         # Initialise excelcol
-        target_varname_excelcol         = OutputFormatter.COLUMN_MAPPER.get("target_varname_excelcol")
-        target_ls_amt_excelcol          = OutputFormatter.COLUMN_MAPPER.get("target_ls_amt_excelcol")
-        target_ls_subtotal_excelcol     = OutputFormatter.COLUMN_MAPPER.get("target_ls_subtotal_excelcol")
-        target_ocr_amt_excelcol         = OutputFormatter.COLUMN_MAPPER.get("target_ocr_amt_excelcol")
-        target_ocr_subtotal_excelcol    = OutputFormatter.COLUMN_MAPPER.get("target_ocr_subtotal_excelcol")
-        target_var_amt_excelcol         = OutputFormatter.COLUMN_MAPPER.get("target_var_amt_excelcol")
-        target_var_subtotal_excelcol    = OutputFormatter.COLUMN_MAPPER.get("target_var_subtotal_excelcol")
-        target_amt_excelcol             = OutputFormatter.COLUMN_MAPPER.get("target_amt_excelcol")
-        target_subtotal_excelcol        = OutputFormatter.COLUMN_MAPPER.get("target_subtotal_excelcol")
+        excelcol_mapper = OutputFormatter.COLUMN_MAPPER
+        target_varname_excelcol         = excelcol_mapper.get("target_varname_excelcol")
+        target_ls_amt_excelcol          = excelcol_mapper.get("target_ls_amt_excelcol")
+        target_ls_subtotal_excelcol     = excelcol_mapper.get("target_ls_subtotal_excelcol")
+        target_ocr_amt_excelcol         = excelcol_mapper.get("target_ocr_amt_excelcol")
+        target_ocr_subtotal_excelcol    = excelcol_mapper.get("target_ocr_subtotal_excelcol")
+        target_var_amt_excelcol         = excelcol_mapper.get("target_var_amt_excelcol")
+        target_var_subtotal_excelcol    = excelcol_mapper.get("target_var_subtotal_excelcol")
+        target_amt_excelcol             = excelcol_mapper.get("target_amt_excelcol")
+        target_subtotal_excelcol        = excelcol_mapper.get("target_subtotal_excelcol")
 
-
+        # TODO: check on below
         for cell in templ_ws[f"{amt_excelcol}"]:
             if cell.value in ["'999999999", '999999999', 999999999]:
                 cell.value = None
@@ -224,36 +270,28 @@ class OutputFormatter:
             if cell.value in ["'999999999", '999999999', 999999999]:
                 cell.value = None
 
-        # Copy to another column
+         # Copy to another column
         self._copy_columns(templ_ws,
                            varname_excelcol, target_varname_excelcol,
-                           "var_name", "var_name",
-                           dst_value = None)
+                           "var_name", dst_value = None)
         self._copy_columns(templ_ws,
                            amt_excelcol, target_amt_excelcol,
-                           "Amount", "Amount (Recal)",
-                           dst_value = None)
+                           "Amount", dst_value = None)
         self._copy_columns(templ_ws,
                            subtotal_excelcol, target_subtotal_excelcol,
-                           "Subtotal", "Subtotal (Recal)",
-                           dst_value = None)
+                           "Subtotal", dst_value = None)
         self._copy_columns(templ_ws,
                            amt_excelcol, target_ls_amt_excelcol,
-                           "Amount", "Amount (L/S)",
-                           dst_value = None)
+                           "Amount", dst_value = None)
         self._copy_columns(templ_ws,
                            subtotal_excelcol, target_ls_subtotal_excelcol,
-                           "Subtotal", "Subtotal (L/S)",
-                           dst_value = None)
+                           "Subtotal", dst_value = None)
         self._copy_columns(templ_ws,
                            amt_excelcol, target_ocr_amt_excelcol,
-                           "Amount", "Amount (Form 2)",
-                           dst_value = 999999999)
-        
+                           "Amount", dst_value = "")
         self._copy_columns(templ_ws,
                            subtotal_excelcol, target_ocr_subtotal_excelcol,
-                           "Subtotal", "Subtotal (Form 2)",
-                           dst_value = 999999999)
+                           "Subtotal", dst_value = "")
         
         amt_excelcol = target_amt_excelcol
         subtotal_excelcol = target_subtotal_excelcol
@@ -270,11 +308,9 @@ class OutputFormatter:
             templ_ws[f"{amt_excelcol}{row}"].value = amt
             templ_ws[f"{subtotal_excelcol}{row}"].value = subtotal
 
-            if templ_ws[f"{target_ls_amt_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{target_ls_amt_excelcol}{row}"].value = None
-            
-            if templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value = None
+            # Replace values declared with 999999999 with None instead
+            self._replace_empty_value(templ_ws, target_ls_amt_excelcol, row)
+            self._replace_empty_value(templ_ws, target_ls_subtotal_excelcol, row)
 
             # TODO: temporary measure for H56
             if templ_ws[f"{subtotal_excelcol}{row}"].value in [999999999, '999999999']:
@@ -282,19 +318,16 @@ class OutputFormatter:
             if templ_ws[f"{amt_excelcol}{row}"].value in [999999999, '999999999']:
                 templ_ws[f"{amt_excelcol}{row}"].value = None
 
-            if templ_ws[f"{amt_excelcol}{row}"].value == amt:
-                templ_ws[f"{target_var_amt_excelcol}{row}"].value = f"= {target_ocr_amt_excelcol}{row} - {amt_excelcol}{row}"
+            # Create formula for variance column to compare values of client vs rsm
+            self._create_var_formula(templ_ws, amt_excelcol, row, amt)
+            self._create_var_formula(templ_ws, subtotal_excelcol, row, subtotal)
 
-            if templ_ws[f"{subtotal_excelcol}{row}"].value == subtotal:
-                templ_ws[f"{target_var_subtotal_excelcol}{row}"].value = f"= {target_ocr_subtotal_excelcol}{row} - {subtotal_excelcol}{row}"
-
-            # Update format
-            templ_ws[f"{amt_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{subtotal_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_var_amt_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_var_subtotal_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_ocr_amt_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_ocr_subtotal_excelcol}{row}"].number_format = '#,##0.00'
+            # Update number format
+            lst_of_excelcols = [amt_excelcol, subtotal_excelcol,
+                                target_var_amt_excelcol, target_var_subtotal_excelcol,
+                                target_ocr_amt_excelcol, target_ocr_subtotal_excelcol
+                                ]
+            self._standardise_number_format(templ_ws, lst_of_excelcols, row)
 
         for varname in varname_to_values_ocr.index:
             amt_ocr = varname_to_values_ocr.at[varname, "Amount"]
@@ -307,51 +340,39 @@ class OutputFormatter:
             templ_ws[f"{target_ocr_amt_excelcol}{row}"].value = amt_ocr
             templ_ws[f"{target_ocr_subtotal_excelcol}{row}"].value = subtotal_ocr
 
+        templ_ws[f"{target_var_amt_excelcol}7"].value = "Amount"
+        templ_ws[f"{target_var_amt_excelcol}7"].font = Font(bold = True)
+        templ_ws[f"{target_var_subtotal_excelcol}7"].value = "Subtotal"
+        templ_ws[f"{target_var_subtotal_excelcol}7"].font = Font(bold = True)
 
         self._copy_column_style(templ_ws, amt_excelcol, target_var_amt_excelcol)
         self._copy_column_style(templ_ws, subtotal_excelcol, target_var_subtotal_excelcol)
 
-        # recalculated_excelcol
-        recalculated_fill = PatternFill("solid", fgColor="00CCFFFF")
-        recalculated_cols = templ_ws[f"{amt_excelcol}7:{subtotal_excelcol}131"] #TODO: currently hardcoded. to update
-        recalculated_cols = list(recalculated_cols)
-        for cell in recalculated_cols:
-            cell[0].fill = recalculated_fill
-            cell[1].fill = recalculated_fill
+        self._section_column_formatting(templ_ws, "recalculated", amt_excelcol)
+        self._section_column_formatting(templ_ws, "ocr", target_ocr_amt_excelcol)
+        self._section_column_formatting(templ_ws, "var", target_var_amt_excelcol)
 
-        # ocr_excelcol
-        ocr_fill = PatternFill("solid", fgColor="00CCCCFF")
-        ocr_cols = templ_ws[f"{target_ocr_amt_excelcol}7:{target_ocr_subtotal_excelcol}131"] #TODO: currently hardcoded. to update
-        ocr_cols = list(ocr_cols)
-        for cell in ocr_cols:
-            cell[0].fill = ocr_fill
-            cell[1].fill = ocr_fill
+        self._create_header(templ_ws)
 
-        # var_excelcol
-        var_fill = PatternFill("solid", fgColor="00CCFFCC")
-        var_cols = templ_ws[f"{target_var_amt_excelcol}7:{target_var_subtotal_excelcol}131"] #TODO: currently hardcoded. to update
-        var_cols = list(var_cols)
-        for cell in var_cols:
-            cell[0].fill = var_fill
-            cell[1].fill = var_fill
+        # titles
+        row = 8 #TODO: should not hardcode
+        self._create_col_header_1(templ_ws, target_ls_amt_excelcol, row, "L/S")
+        self._create_col_header_1(templ_ws, target_ocr_amt_excelcol, row, "Client")
+        self._create_col_header_1(templ_ws, target_amt_excelcol, row, "RSM")
+        self._create_col_header_1(templ_ws, target_var_amt_excelcol, row, "Variance")
 
+       
         # conditional formatting
         redFill = PatternFill(start_color='EE1111',
                               end_color='EE1111',
                               fill_type='solid')
-        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}9:{target_var_subtotal_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}10:{target_var_subtotal_excelcol}131",
                                       CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
-        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}9:{target_var_subtotal_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_amt_excelcol}10:{target_var_subtotal_excelcol}131",
                                       CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
         
 
-        templ_ws[f"{target_var_amt_excelcol}7"].value = "Amount (Var)"
-        templ_ws[f"{target_var_amt_excelcol}7"].font = Font(bold = True)
-        templ_ws[f"{target_var_subtotal_excelcol}7"].value = "Subtotal (Var)"
-        templ_ws[f"{target_var_subtotal_excelcol}7"].font = Font(bold = True)
-
         templ_ws.column_dimensions[target_varname_excelcol].hidden = True
-        self._create_header(templ_ws)
         templ_ws.title = "Form 2 (Recalculated)"
 
         templ_wb.save(self.output_fp)
@@ -360,7 +381,7 @@ class OutputFormatter:
 if __name__ == "__main__":
 
     if True: # Testing
-        client_no   = 71679
+        client_no   = 7167
         fy          = 2022
 
         #input_fp    = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_7167_2022.xlsx"
@@ -382,3 +403,7 @@ if __name__ == "__main__":
                                fy           = fy,
                                aic_name     = aic_name
                                )
+        
+    if True:
+        import webbrowser
+        webbrowser.open(output_fp)

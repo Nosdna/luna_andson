@@ -64,7 +64,7 @@ if __name__ == "__main__":
     ## Look for sig_account file
     pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_*_*_sig_accounts.xlsx")
     list_of_files = glob.glob(pattern)
-    sig_acc_fp = max(list_of_files, key=os.path.getctime)
+    sig_acc_fp = max(list_of_files, key=os.path.getmtime)
     client_number = re.findall("mas_form3_(\d+)_\d{4}_sig_accounts.xlsx", sig_acc_fp)[0]
     fy = re.findall("mas_form3_\d+_(\d{4})_sig_accounts.xlsx", sig_acc_fp)[0]
         

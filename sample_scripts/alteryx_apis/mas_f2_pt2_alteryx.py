@@ -192,7 +192,7 @@ if __name__ == "__main__":
     if True:
         import webbrowser
         webbrowser.open(final_output_fp)
-        webbrowser.open(awp_fp)
+        webbrowser.open(self.awp_fp)
     
     
     

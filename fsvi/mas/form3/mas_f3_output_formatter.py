@@ -4,6 +4,7 @@ from openpyxl.styles import Font
 from openpyxl.styles import Border, Side
 from openpyxl.styles import Alignment
 from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter, column_index_from_string
 import pandas as pd
 import re
 from copy import copy
@@ -122,7 +123,7 @@ class OutputFormatter:
             ws.unmerge_cells(range_string=str(merge))
 
         ws.delete_rows(idx = 1, amount = 3)
-        ws.insert_rows(idx = 0, amount = 7)
+        ws.insert_rows(idx = 0, amount = 8)
 
         for merge in list(ws.merged_cells):
             ws.unmerge_cells(range_string=str(merge))
@@ -174,6 +175,53 @@ class OutputFormatter:
         ws[f"D{row}"].alignment = Alignment(horizontal = 'left')
         ws[f"D{row}"].border = border_style
         ws.merge_cells(f"D{row}:F{row}")
+
+    def _standardise_number_format(self, ws, lst_of_excelcols, row):
+        for excelcol in lst_of_excelcols:
+            ws[f"{excelcol}{row}"].number_format = '#,##0.00'
+
+    def _replace_empty_value(self, ws, excelcol, row):
+        cell = ws[f"{excelcol}{row}"]
+
+        if cell.value in [999999999, '999999999']:
+            cell.value = None
+
+    def _create_var_formula(self, ws, excelcol, excelrow, val):
+        
+        cell = ws[f"{excelcol}{excelrow}"]
+
+        var_target_excelcol = self._get_col_letter_from_ref(excelcol, 2)
+        ocr_target_excelcol = self._get_col_letter_from_ref(excelcol, -2)
+        if cell.value == val:
+            ws[f"{var_target_excelcol}{excelrow}"].value = f"= {ocr_target_excelcol}{excelrow+5} - {excelcol}{excelrow+5}"
+        # TODO : excelrow+5 is wrong
+
+    def _get_col_letter_from_ref(self, ref_excelcol, mvmt):
+        ref_colno = column_index_from_string(ref_excelcol)
+        target_colno = ref_colno + int(mvmt)
+        target_excelcol = get_column_letter(target_colno)
+
+        return target_excelcol
+    
+    def _section_column_formatting(self, ws, section_name, starting_excelcol):
+        section_color_dict = {'recalculated': '00CCFFFF',
+                              'ocr'         : '00CCCCFF',
+                              'var'         : '00CCFFCC'
+                              }
+        fill_setting = PatternFill("solid", fgColor = section_color_dict.get(section_name))
+        ending_excelcol = self._get_col_letter_from_ref(starting_excelcol, 1)
+        cols = ws[f"{starting_excelcol}8:{ending_excelcol}98"] #TODO: look into how to dynamically reference rows
+        for cell in cols:
+            cell[0].fill = fill_setting
+            cell[1].fill = fill_setting
+
+    def _create_col_header_1(self, ws, excelcol, row, header_name):
+            cell = ws[f"{excelcol}{row}"]
+            cell.value = header_name
+            cell.font = Font(bold = True)
+            cell.alignment = Alignment(horizontal = 'center')
+            end_col = self._get_col_letter_from_ref(excelcol, 1)
+            ws.merge_cells(f"{excelcol}{row}:{end_col}{row}")
             
     def write_output(self):
         templ_wb = openpyxl.load_workbook(self.template_fp)
@@ -216,15 +264,16 @@ class OutputFormatter:
         varname_excelcol = colname_to_excelcol.at["var_name"]
         
         # Initialise excelcol
-        target_varname_excelcol     = OutputFormatter.COLUMN_MAPPER.get("target_varname_excelcol")
-        target_ls_prevfy_excelcol   = OutputFormatter.COLUMN_MAPPER.get("target_ls_prevfy_excelcol")
-        target_ls_currfy_excelcol   = OutputFormatter.COLUMN_MAPPER.get("target_ls_currfy_excelcol")
-        target_ocr_prevfy_excelcol  = OutputFormatter.COLUMN_MAPPER.get("target_ocr_prevfy_excelcol")
-        target_ocr_currfy_excelcol  = OutputFormatter.COLUMN_MAPPER.get("target_ocr_currfy_excelcol")
-        target_var_prevfy_excelcol  = OutputFormatter.COLUMN_MAPPER.get("target_var_prevfy_excelcol")
-        target_var_currfy_excelcol  = OutputFormatter.COLUMN_MAPPER.get("target_var_currfy_excelcol")
-        target_prevfy_excelcol      = OutputFormatter.COLUMN_MAPPER.get("target_prevfy_excelcol")
-        target_currfy_excelcol      = OutputFormatter.COLUMN_MAPPER.get("target_currfy_excelcol")
+        excelcol_mapper = OutputFormatter.COLUMN_MAPPER
+        target_varname_excelcol     = excelcol_mapper.get("target_varname_excelcol")
+        target_ls_prevfy_excelcol   = excelcol_mapper.get("target_ls_prevfy_excelcol")
+        target_ls_currfy_excelcol   = excelcol_mapper.get("target_ls_currfy_excelcol")
+        target_ocr_prevfy_excelcol  = excelcol_mapper.get("target_ocr_prevfy_excelcol")
+        target_ocr_currfy_excelcol  = excelcol_mapper.get("target_ocr_currfy_excelcol")
+        target_var_prevfy_excelcol  = excelcol_mapper.get("target_var_prevfy_excelcol")
+        target_var_currfy_excelcol  = excelcol_mapper.get("target_var_currfy_excelcol")
+        target_prevfy_excelcol      = excelcol_mapper.get("target_prevfy_excelcol")
+        target_currfy_excelcol      = excelcol_mapper.get("target_currfy_excelcol")
 
         # Copy to another column
         self._copy_columns(templ_ws,
@@ -233,30 +282,31 @@ class OutputFormatter:
                            dst_value = None)
         self._copy_columns(templ_ws,
                            prevfy_excelcol, target_prevfy_excelcol,
-                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year (Recal)\n{int(self.fy)-1}\n$",
+                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year\n{int(self.fy)-1}\n$",
                            dst_value = None)
         self._copy_columns(templ_ws,
                            currfy_excelcol, target_currfy_excelcol,
-                           "Current year\n<<<current_fy>>>\n$", f"Current year (Recal)\n{self.fy}\n$",
+                           "Current year\n<<<current_fy>>>\n$", f"Current year\n{self.fy}\n$",
                            dst_value = None)
         self._copy_columns(templ_ws,
                            prevfy_excelcol, target_ls_prevfy_excelcol,
-                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year (L/S)\n{int(self.fy)-1}\n$",
+                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year\n{int(self.fy)-1}\n$",
                            dst_value = None)
         self._copy_columns(templ_ws,
                            currfy_excelcol, target_ls_currfy_excelcol,
-                           "Current year\n<<<current_fy>>>\n$", f"Current year (L/S)\n{self.fy}\n$",
+                           "Current year\n<<<current_fy>>>\n$", f"Current year\n{self.fy}\n$",
                            dst_value = None)
         self._copy_columns(templ_ws,
                            prevfy_excelcol, target_ocr_prevfy_excelcol,
-                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year (Form 3)\n{int(self.fy)-1}\n$",
+                           "Previous year\n<<<previous_fy>>>\n$", f"Previous year\n{int(self.fy)-1}\n$",
                            dst_value = "")
         
         self._copy_columns(templ_ws,
                            currfy_excelcol, target_ocr_currfy_excelcol,
-                           "Current year\n<<<current_fy>>>\n$", f"Current year (Form 3)\n{int(self.fy)}\n$",
+                           "Current year\n<<<current_fy>>>\n$", f"Current year\n{int(self.fy)}\n$",
                            dst_value = "")
         
+        # shifting original amt and subtotal excelcol to another col
         prevfy_excelcol = target_prevfy_excelcol
         currfy_excelcol = target_currfy_excelcol
     
@@ -275,25 +325,20 @@ class OutputFormatter:
             if re.match("rev_other_revenue_\d+.*", varname) or re.match("exp_other_expense_\d+.*", varname):
                 templ_ws[f"{header_3_excelcol}{row}"].value = sig_acct_name
 
-            if templ_ws[f"{target_ls_prevfy_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{target_ls_prevfy_excelcol}{row}"].value = None
-            
-            if templ_ws[f"{target_ls_currfy_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{target_ls_currfy_excelcol}{row}"].value = None
+            # Replace values declared with 999999999 with None instead
+            self._replace_empty_value(templ_ws, target_ls_prevfy_excelcol, row)
+            self._replace_empty_value(templ_ws, target_ls_currfy_excelcol, row)
 
-            if templ_ws[f"{prevfy_excelcol}{row}"].value == prevfy:
-                templ_ws[f"{target_var_prevfy_excelcol}{row}"].value = f"= {target_ocr_prevfy_excelcol}{row+4} - {prevfy_excelcol}{row+4}"
+            # Create formula for variance column to compare values of client vs rsm
+            self._create_var_formula(templ_ws, prevfy_excelcol, row, prevfy)
+            self._create_var_formula(templ_ws, currfy_excelcol, row, currfy)
 
-            if templ_ws[f"{currfy_excelcol}{row}"].value == currfy:
-                templ_ws[f"{target_var_currfy_excelcol}{row}"].value = f"= {target_ocr_currfy_excelcol}{row+4} - {currfy_excelcol}{row+4}"
-
-            # Update format
-            templ_ws[f"{prevfy_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{currfy_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_var_prevfy_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_var_currfy_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_ocr_prevfy_excelcol}{row}"].number_format = '#,##0.00'
-            templ_ws[f"{target_ocr_currfy_excelcol}{row}"].number_format = '#,##0.00'
+            # Update number format
+            lst_of_excelcols = [prevfy_excelcol, currfy_excelcol,
+                                target_var_prevfy_excelcol, target_var_currfy_excelcol,
+                                target_ocr_prevfy_excelcol, target_ocr_currfy_excelcol
+                                ]
+            self._standardise_number_format(templ_ws, lst_of_excelcols, row)
 
         for varname in varname_to_values_ocr.index:
             prevfy_ocr = varname_to_values_ocr.at[varname, "Previous Balance"]
@@ -306,72 +351,61 @@ class OutputFormatter:
             templ_ws[f"{target_ocr_prevfy_excelcol}{row}"].value = prevfy_ocr
             templ_ws[f"{target_ocr_currfy_excelcol}{row}"].value = currfy_ocr
 
+        templ_ws[f"{target_var_prevfy_excelcol}4"].value = f"Previous year\n{int(self.fy)-1}\n$"
+        templ_ws[f"{target_var_prevfy_excelcol}4"].font = Font(bold = True)
+        templ_ws[f"{target_var_prevfy_excelcol}4"].alignment = Alignment(wrapText   = True,
+                                                                         horizontal = 'center')
+        templ_ws[f"{target_var_currfy_excelcol}4"].value = f"Current year\n{self.fy}\n$"
+        templ_ws[f"{target_var_currfy_excelcol}4"].font = Font(bold = True)
+        templ_ws[f"{target_var_currfy_excelcol}4"].alignment = Alignment(wrapText   = True,
+                                                                         horizontal = 'center')
+
 
         self._copy_column_style(templ_ws, prevfy_excelcol, target_var_prevfy_excelcol)
         self._copy_column_style(templ_ws, currfy_excelcol, target_var_currfy_excelcol)
 
-        # recalculated_excelcol
-        recalculated_fill = PatternFill("solid", fgColor="00CCFFFF")
-        recalculated_cols = templ_ws[f"{prevfy_excelcol}4:{currfy_excelcol}98"] #TODO: currently hardcoded. to update
-        recalculated_cols = list(recalculated_cols)
-        for cell in recalculated_cols:
-            cell[0].fill = recalculated_fill
-            cell[1].fill = recalculated_fill
-
-        # ocr_excelcol
-        ocr_fill = PatternFill("solid", fgColor="00CCCCFF")
-        ocr_cols = templ_ws[f"{target_ocr_prevfy_excelcol}4:{target_ocr_currfy_excelcol}98"] #TODO: currently hardcoded. to update
-        ocr_cols = list(ocr_cols)
-        for cell in ocr_cols:
-            cell[0].fill = ocr_fill
-            cell[1].fill = ocr_fill
-
-        # var_excelcol
-        var_fill = PatternFill("solid", fgColor="00CCFFCC")
-        var_cols = templ_ws[f"{target_var_prevfy_excelcol}4:{target_var_currfy_excelcol}98"] #TODO: currently hardcoded. to update
-        var_cols = list(var_cols)
-        for cell in var_cols:
-            cell[0].fill = var_fill
-            cell[1].fill = var_fill
-         
-        templ_ws.column_dimensions[target_varname_excelcol].hidden = True
         self._create_header(templ_ws)
-        templ_ws.title = "Form 3 (Recalculated)"
 
-        templ_ws[f"{target_var_prevfy_excelcol}8"].value = f"Previous year (Var)\n{int(self.fy)-1}\n$"
-        templ_ws[f"{target_var_prevfy_excelcol}8"].font = Font(bold = True)
-        templ_ws[f"{target_var_prevfy_excelcol}8"].alignment = Alignment(wrapText   = True,
-                                                                         horizontal = 'center')
-        templ_ws[f"{target_var_currfy_excelcol}8"].value = f"Current year (Var)\n{self.fy}\n$"
-        templ_ws[f"{target_var_currfy_excelcol}8"].font = Font(bold = True)
-        templ_ws[f"{target_var_currfy_excelcol}8"].alignment = Alignment(wrapText   = True,
-                                                                         horizontal = 'center')
+        self._section_column_formatting(templ_ws, "recalculated", prevfy_excelcol)
+        self._section_column_formatting(templ_ws, "ocr", target_ocr_prevfy_excelcol)
+        self._section_column_formatting(templ_ws, "var", target_var_prevfy_excelcol)
+        
+
+        # titles
+        row = 8 #TODO: should not hardcode
+        self._create_col_header_1(templ_ws, target_ls_prevfy_excelcol, row, "L/S")
+        self._create_col_header_1(templ_ws, target_ocr_prevfy_excelcol, row, "Client")
+        self._create_col_header_1(templ_ws, target_prevfy_excelcol, row, "RSM")
+        self._create_col_header_1(templ_ws, target_var_prevfy_excelcol, row, "Variance")
+
 
         # conditional formatting
         redFill = PatternFill(start_color='EE1111',
                               end_color='EE1111',
                               fill_type='solid')
-        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}9:{target_var_currfy_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}10:{target_var_currfy_excelcol}131",
                                       CellIsRule(operator='greaterThan', formula=['0.01'], stopIfTrue=True, fill=redFill))
-        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}9:{target_var_currfy_excelcol}131",
+        templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}10:{target_var_currfy_excelcol}131",
                                       CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
    
-
-        templ_ws[f"{prevfy_excelcol}8"] = f"Previous year\n{int(self.fy)-1}\n$"
-        templ_ws[f"{prevfy_excelcol}8"].alignment = Alignment(wrapText   = True,
-                                                              horizontal = 'center')
-        templ_ws[f"{currfy_excelcol}8"] = f"Current year\n{self.fy}\n$"
-        templ_ws[f"{currfy_excelcol}8"].alignment = Alignment(wrapText   = True,
-                                                              horizontal = 'center')
+        # NOTE: forgot what this was for
+        # templ_ws[f"{prevfy_excelcol}10"] = f"Previous year\n{int(self.fy)-1}\n$"
+        # templ_ws[f"{prevfy_excelcol}10"].alignment = Alignment(wrapText   = True,
+        #                                                       horizontal = 'center')
+        # templ_ws[f"{currfy_excelcol}10"] = f"Current year\n{self.fy}\n$"
+        # templ_ws[f"{currfy_excelcol}10"].alignment = Alignment(wrapText   = True,
+        #                                                       horizontal = 'center')
         
-
+        templ_ws.column_dimensions[target_varname_excelcol].hidden = True
+        templ_ws.title = "Form 3 (Recalculated)"
+        
         templ_wb.save(self.output_fp)
         templ_wb.close()
-
+4
 if __name__ == "__main__":
 
     if True: # Testing
-        client_no   = 40709
+        client_no   = 7167
         fy          = 2022
 
         #input_fp    = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_7167_2022.xlsx"
@@ -394,4 +428,8 @@ if __name__ == "__main__":
                                client_class = client_class,
                                aic_name     = aic_name
                                )
+        
+    if True:
+        import webbrowser
+        webbrowser.open(output_fp)
         
