@@ -8,6 +8,7 @@ from openpyxl.utils import get_column_letter, column_index_from_string
 import pandas as pd
 from copy import copy
 from datetime import datetime
+import re
 
 import luna
 from luna.fsvi.mas.template_reader import MASTemplateReader_Form1
@@ -192,7 +193,7 @@ class OutputFormatter:
         var_target_excelcol = self._get_col_letter_from_ref(excelcol, 2)
         ocr_target_excelcol = self._get_col_letter_from_ref(excelcol, -2)
         if cell.value == val:
-            ws[f"{var_target_excelcol}{excelrow}"].value = f"= {ocr_target_excelcol}{excelrow+1} - {excelcol}{excelrow+1}"
+            ws[f"{var_target_excelcol}{excelrow}"].value = f"= {ocr_target_excelcol}{excelrow+2} - {excelcol}{excelrow+2}"
         # TODO : excelrow+2 is wrong
 
     def _get_col_letter_from_ref(self, ref_excelcol, mvmt):
@@ -298,8 +299,12 @@ class OutputFormatter:
 
         # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
 
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Subtotal"] = varname_to_values["Subtotal"].astype(str)
+        filtered_varname_to_values = varname_to_values_temp[~varname_to_values_temp["Subtotal"].str.contains("= SUM\(.*\)")]
+
         # Update amount and subtotal column with recalculated values
-        for varname in varname_to_values.index:
+        for varname in filtered_varname_to_values.index:
             amt = varname_to_values.at[varname, "Amount"]
             subtotal = varname_to_values.at[varname, "Subtotal"]
             
@@ -355,6 +360,202 @@ class OutputFormatter:
         self._section_column_formatting(templ_ws, "var", target_var_amt_excelcol)
 
         self._create_header(templ_ws)
+
+        # adjust total and subtotal formulas
+        # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Subtotal"] = varname_to_values["Subtotal"].astype(str)
+        lst_of_formula_varname = self.template_class.get_varname_to_formula().index.tolist()
+        filtered_varname_to_values = varname_to_values_temp[varname_to_values_temp.index.isin(lst_of_formula_varname)]
+        
+        for varname in filtered_varname_to_values.index:
+
+            MODIFIER = 2
+
+            subtotal = varname_to_values.at[varname, "Subtotal"]
+
+            row = varname_to_index.at[varname] + MODIFIER
+
+            formula_subtotal_value = str(templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value)
+
+            # = SUM(A1:A5) OR = SUM(A1,A5)
+            pattern = "^= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+                char = formula_str.group(3)
+                ori_end_letter = formula_str.group(4)
+                ori_end_row = formula_str.group(5)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = SUM(A1:A5) - SUM(A10:A15) OR = SUM(A1:A5) + SUM(A10:A15) OR  SUM(A1,A5) + SUM(A10:A15) ETC...
+            pattern = "^= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)\s*(.)\s*SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+                char = formula_str.group(3)
+                ori_end_letter = formula_str.group(4)
+                ori_end_row = formula_str.group(5)
+                char2 = formula_str.group(6)
+                ori_start_letter2 = formula_str.group(7)
+                ori_start_row2 = formula_str.group(8)
+                char3 = formula_str.group(9)
+                ori_end_letter2 = formula_str.group(10)
+                ori_end_row2 = formula_str.group(11)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+                new_start_row2 = str(int(ori_start_row2) + MODIFIER)
+                new_end_row2 = str(int(ori_end_row2) + MODIFIER)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+                new_start_letter2 = self._get_col_letter_from_ref(ori_start_letter2, 2)
+                new_end_letter2 = self._get_col_letter_from_ref(ori_end_letter2, 2)
+
+                new_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row}){char2}SUM({new_start_letter2}{new_start_row2}{char3}{new_end_letter2}{new_end_row2})"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = A1 - SUM(A10:A15)
+            pattern = "^= ([A-Z]+)(\d+)\s*(.)\s*SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_net_letter = formula_str.group(1)
+                ori_net_row = formula_str.group(2)
+                net_char =  formula_str.group(3)
+                ori_start_letter = formula_str.group(4)
+                ori_start_row = formula_str.group(5)
+                char = formula_str.group(6)
+                ori_end_letter = formula_str.group(7)
+                ori_end_row = formula_str.group(8)
+
+                new_net_row = str(int(ori_net_row) + MODIFIER)
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_net_letter = self._get_col_letter_from_ref(ori_net_letter, 2)
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_formula = f"= {new_net_letter}{new_net_row} {net_char} SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+    
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = SUM(A10:A15) - A20
+            pattern = "^= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)\s*(.)\s*([A-Z]+)(\d+)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+                char = formula_str.group(3)
+                ori_end_letter = formula_str.group(4)
+                ori_end_row = formula_str.group(5)
+                net_char =  formula_str.group(6)
+                ori_net_letter = formula_str.group(7)
+                ori_net_row = formula_str.group(8)
+
+                new_net_row = str(int(ori_net_row) + MODIFIER)
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_net_letter = self._get_col_letter_from_ref(ori_net_letter, 2)
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row}) {net_char} {new_net_letter}{new_net_row}"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = A1
+            pattern = "^= ([A-Z]+)(\d+)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+
+                new_formula = f"= {new_start_letter}{new_start_row}"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = A1/A10 * 100%
+            pattern = "^= ([A-Z]+)(\d+)\s*\/\s*([A-Z]+)(\d+)\s*\*\s*100$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_num_letter = formula_str.group(1)
+                ori_num_row = formula_str.group(2)
+                ori_denom_letter = formula_str.group(3)
+                ori_denom_row = formula_str.group(4)
+
+                new_num_row = str(int(ori_num_row) + MODIFIER)
+                new_denom_row = str(int(ori_denom_row) + MODIFIER)
+
+                new_num_letter = self._get_col_letter_from_ref(ori_num_letter, 2)
+                new_denom_letter = self._get_col_letter_from_ref(ori_denom_letter, 2)
+
+                new_formula = f"= {new_num_letter}{new_num_row} / {new_denom_letter}{new_denom_row} * 100"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = SUM(A1,A2,A3,A4,A5)
+            pattern = "^= SUM\(([A-Z]+)(\d+)\s*,\s*([A-Z]+)(\d+)\s*,\s*([A-Z]+)(\d+)\s*,\s*([A-Z]+)(\d+)\s*,\s*([A-Z]+)(\d+)\)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_letter1 = formula_str.group(1)
+                ori_row1 = formula_str.group(2)
+                ori_letter2 = formula_str.group(3)
+                ori_row2 = formula_str.group(4)
+                ori_letter3 = formula_str.group(5)
+                ori_row3 = formula_str.group(6)
+                ori_letter4 = formula_str.group(7)
+                ori_row4 = formula_str.group(8)
+                ori_letter5 = formula_str.group(9)
+                ori_row5 = formula_str.group(10)
+
+                new_row1 = str(int(ori_row1) + MODIFIER)
+                new_row2 = str(int(ori_row2) + MODIFIER)
+                new_row3 = str(int(ori_row3) + MODIFIER)
+                new_row4 = str(int(ori_row4) + MODIFIER)
+                new_row5 = str(int(ori_row5) + MODIFIER)
+
+                new_letter1 = self._get_col_letter_from_ref(ori_letter1, 2)
+                new_letter2 = self._get_col_letter_from_ref(ori_letter2, 2)
+                new_letter3 = self._get_col_letter_from_ref(ori_letter3, 2)
+                new_letter4 = self._get_col_letter_from_ref(ori_letter4, 2)
+                new_letter5 = self._get_col_letter_from_ref(ori_letter5, 2)
+
+                new_formula = f"= SUM({new_letter1}{new_row1}, {new_letter2}{new_row2}, {new_letter3}{new_row3}, {new_letter4}{new_row4}, {new_letter5}{new_row5})"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # = MIN(A1 * 100, 10000000)
+            pattern = "^= MIN\(([A-Z]+)(\d+)\s\*\s*100.\s*10000000\)$"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+
+                new_formula = f"= MIN({new_start_letter}{new_start_row} * 100, 10000000)"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
 
         # titles
         row = 8 #TODO: should not hardcode

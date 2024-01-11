@@ -123,12 +123,16 @@ class MASTemplateReader_Form1:
             pattern = ".*=.*"
             varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
             varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
+            pattern2 = ".*<<<.*>>>.*"
+            varname_to_lscodes_ls = varname_to_lscodes_ls[~varname_to_lscodes_temp.str.contains(pattern2)]
+            varname_to_lscodes_f1 = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern2)]
+
 
             # convert to intervals
             varname_to_lscodes_ls = varname_to_lscodes_ls.apply(misc.convert_list_of_string_to_interval)
 
             # varname_to_lscodes = varname_to_lscodes.append(varname_to_lscodes_formula)
-            varname_to_lscodes = pd.concat([varname_to_lscodes_ls, varname_to_lscodes_formula], axis = 0)
+            varname_to_lscodes = pd.concat([varname_to_lscodes_ls, varname_to_lscodes_formula, varname_to_lscodes_f1], axis = 0)
 
             # ## ORIGINAL ##
             # # convert to intervals
@@ -354,11 +358,11 @@ if __name__ == "__main__":
     luna_fp = dirname(dirname(dirname(__file__)))
     param_fp = os.path.join(luna_fp, 'parameters')
     fp = os.path.join(param_fp, "mas_forms_tb_mapping.xlsx")
-    sheet_name = "Form 3 - TB mapping"
+    sheet_name = "Form 2 - TB mapping"
     
     
     # Main
-    self = MASTemplateReader_Form3(fp, sheet_name)
+    self = MASTemplateReader_Form1(fp, sheet_name)
     
     if False:
         #fp = r"D:\Desktop\owgs\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"
