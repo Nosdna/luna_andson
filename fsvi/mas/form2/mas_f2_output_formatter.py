@@ -296,6 +296,8 @@ class OutputFormatter:
         amt_excelcol = target_amt_excelcol
         subtotal_excelcol = target_subtotal_excelcol
 
+        # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
+
         # Update amount and subtotal column with recalculated values
         for varname in varname_to_values.index:
             amt = varname_to_values.at[varname, "Amount"]

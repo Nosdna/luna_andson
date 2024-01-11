@@ -210,7 +210,7 @@ class OutputFormatter:
                               }
         fill_setting = PatternFill("solid", fgColor = section_color_dict.get(section_name))
         ending_excelcol = self._get_col_letter_from_ref(starting_excelcol, 1)
-        cols = ws[f"{starting_excelcol}8:{ending_excelcol}98"] #TODO: look into how to dynamically reference rows
+        cols = ws[f"{starting_excelcol}8:{ending_excelcol}103"] #TODO: look into how to dynamically reference rows
         for cell in cols:
             cell[0].fill = fill_setting
             cell[1].fill = fill_setting
@@ -388,7 +388,7 @@ class OutputFormatter:
         templ_ws.conditional_formatting.add(f"{target_var_prevfy_excelcol}10:{target_var_currfy_excelcol}131",
                                       CellIsRule(operator='lessThan', formula=['-0.01'], stopIfTrue=True, fill=redFill))
    
-        # NOTE: forgot what this was for
+        # NOTE: check what this was for
         # templ_ws[f"{prevfy_excelcol}10"] = f"Previous year\n{int(self.fy)-1}\n$"
         # templ_ws[f"{prevfy_excelcol}10"].alignment = Alignment(wrapText   = True,
         #                                                       horizontal = 'center')

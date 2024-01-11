@@ -8,6 +8,7 @@ from openpyxl.utils import get_column_letter, column_index_from_string
 import pandas as pd
 from copy import copy
 from datetime import datetime
+import re
 
 import luna
 from luna.fsvi.mas.template_reader import MASTemplateReader_Form1
@@ -290,8 +291,14 @@ class OutputFormatter:
         amt_excelcol = target_amt_excelcol
         subtotal_excelcol = target_subtotal_excelcol
 
+        # filtered_varname_to_values = varname_to_values[~varname_to_values.index.str.match(r"^total_.*")]
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Subtotal"] = varname_to_values["Subtotal"].astype(str)
+        filtered_varname_to_values = varname_to_values_temp[~varname_to_values_temp["Subtotal"].str.contains("= SUM\(.*\)")]
+
         # Update amount and subtotal column with recalculated values
-        for varname in varname_to_values.index:
+        # for varname in varname_to_values.index:
+        for varname in filtered_varname_to_values.index:
             amt = varname_to_values.at[varname, "Amount"]
             subtotal = varname_to_values.at[varname, "Subtotal"]
             
@@ -342,6 +349,67 @@ class OutputFormatter:
         self._section_column_formatting(templ_ws, "var", target_var_amt_excelcol)
         
         self._create_header(templ_ws)
+
+        # adjust total and subtotal formulas
+        # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Subtotal"] = varname_to_values["Subtotal"].astype(str)
+        lst_of_formula_varname = self.template_class.get_varname_to_formula().index.tolist()
+        filtered_varname_to_values = varname_to_values_temp[varname_to_values_temp.index.isin(lst_of_formula_varname)]
+        
+        for varname in filtered_varname_to_values.index:
+
+            MODIFIER = 2
+
+            subtotal = varname_to_values.at[varname, "Subtotal"]
+
+            row = varname_to_index.at[varname] + MODIFIER
+
+            formula_subtotal_value = str(templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value)
+
+            pattern = "= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_start_letter = formula_str.group(1)
+                ori_start_row = formula_str.group(2)
+                char = formula_str.group(3)
+                ori_end_letter = formula_str.group(4)
+                ori_end_row = formula_str.group(5)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # currently for only one pattern which is net trade debtors (= XXX - SUM(XXX:XXX))
+            pattern = "= ([A-Z]+)(\d+)\s*(.)\s*SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)"
+            formula_str = re.search(pattern, formula_subtotal_value)
+            if formula_str is not None:
+                ori_net_letter = formula_str.group(1)
+                ori_net_row = formula_str.group(2)
+                net_char =  formula_str.group(3)
+                ori_start_letter = formula_str.group(4)
+                ori_start_row = formula_str.group(5)
+                char = formula_str.group(6)
+                ori_end_letter = formula_str.group(7)
+                ori_end_row = formula_str.group(8)
+
+                new_net_row = str(int(ori_net_row) + MODIFIER)
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_net_letter = self._get_col_letter_from_ref(ori_net_letter, 2)
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_formula = f"= {new_end_letter}{new_net_row} {net_char} SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+
+                templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
 
         # titles
         row = 8 #TODO: should not hardcode
