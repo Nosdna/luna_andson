@@ -291,7 +291,6 @@ class OutputFormatter:
         amt_excelcol = target_amt_excelcol
         subtotal_excelcol = target_subtotal_excelcol
 
-        # filtered_varname_to_values = varname_to_values[~varname_to_values.index.str.match(r"^total_.*")]
         varname_to_values_temp = varname_to_values.copy()
         varname_to_values_temp["Subtotal"] = varname_to_values["Subtotal"].astype(str)
         filtered_varname_to_values = varname_to_values_temp[~varname_to_values_temp["Subtotal"].str.contains("= SUM\(.*\)")]
@@ -407,7 +406,7 @@ class OutputFormatter:
                 new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
                 new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
 
-                new_formula = f"= {new_end_letter}{new_net_row} {net_char} SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+                new_formula = f"= {new_net_letter}{new_net_row} {net_char} SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
 
                 templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
 

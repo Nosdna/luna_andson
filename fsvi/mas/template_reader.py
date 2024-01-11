@@ -275,10 +275,24 @@ class MASTemplateReader_Form3:
         
             # drop those with [nan]
             varname_to_lscodes = varname_to_lscodes[varname_to_lscodes.apply(lambda s:s!= ['nan'])]
-            
+
+            # NOTE: edited by SJ to accommodate formulas on mapping template 20240111
+            varname_to_lscodes_temp = varname_to_lscodes.copy().astype(str)
+            pattern = ".*=.*"
+            varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
+            varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
+
             # convert to intervals
-            varname_to_lscodes = varname_to_lscodes.apply(misc.convert_list_of_string_to_interval)
-        
+            varname_to_lscodes_ls = varname_to_lscodes_ls.apply(misc.convert_list_of_string_to_interval)
+
+            # varname_to_lscodes = varname_to_lscodes.append(varname_to_lscodes_formula)
+            varname_to_lscodes = pd.concat([varname_to_lscodes_ls, varname_to_lscodes_formula], axis = 0)
+
+            # ## ORIGINAL ##
+            # # convert to intervals
+            # varname_to_lscodes = varname_to_lscodes.apply(misc.convert_list_of_string_to_interval)
+            # ## ORIGINAL - END ##
+
             # save as attr
             self.varname_to_lscodes = varname_to_lscodes
             self.varname_to_index   = varname_to_index
@@ -295,6 +309,15 @@ class MASTemplateReader_Form3:
             raise KeyError (f"Input varname={varname} not found.")
         
         return s.at[varname]
+    
+    def get_varname_to_formula(self):
+
+        full_frame = self.varname_to_lscodes.copy()
+        full_frame_temp = full_frame.copy().astype(str)
+        pattern = ".*=.*"
+        formula_frame = full_frame[full_frame_temp.str.contains(pattern)]
+
+        return formula_frame
 
     # def get_ls_codes_by_varname(self, varname):    
         
@@ -331,11 +354,11 @@ if __name__ == "__main__":
     luna_fp = dirname(dirname(dirname(__file__)))
     param_fp = os.path.join(luna_fp, 'parameters')
     fp = os.path.join(param_fp, "mas_forms_tb_mapping.xlsx")
-    sheet_name = "Form 1 - TB mapping"
+    sheet_name = "Form 3 - TB mapping"
     
     
     # Main
-    self = MASTemplateReader_Form1(fp, sheet_name)
+    self = MASTemplateReader_Form3(fp, sheet_name)
     
     if False:
         #fp = r"D:\Desktop\owgs\CODES\luna\parameters\mas_forms_tb_mapping.xlsx"

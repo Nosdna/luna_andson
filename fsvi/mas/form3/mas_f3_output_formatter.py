@@ -309,7 +309,11 @@ class OutputFormatter:
         # shifting original amt and subtotal excelcol to another col
         prevfy_excelcol = target_prevfy_excelcol
         currfy_excelcol = target_currfy_excelcol
-    
+        
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Balance"] = varname_to_values["Balance"].astype(str)
+        filtered_varname_to_values = varname_to_values_temp[~varname_to_values_temp["Balance"].str.contains("= SUM\(.*\)")]
+
         for varname in varname_to_values.index:
             prevfy = varname_to_values.at[varname, "Previous Balance"]
             currfy = varname_to_values.at[varname, "Balance"]
@@ -370,6 +374,82 @@ class OutputFormatter:
         self._section_column_formatting(templ_ws, "ocr", target_ocr_prevfy_excelcol)
         self._section_column_formatting(templ_ws, "var", target_var_prevfy_excelcol)
         
+        # adjust total and subtotal formulas
+        # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
+        
+        varname_to_values_temp = varname_to_values.copy()
+        varname_to_values_temp["Previous Balance"] = varname_to_values["Previous Balance"].astype(str)
+        lst_of_formula_varname = self.template_class.get_varname_to_formula().index.tolist()
+        filtered_varname_to_values = varname_to_values_temp[varname_to_values_temp.index.isin(lst_of_formula_varname)]
+
+        for varname in filtered_varname_to_values.index:
+
+            MODIFIER = 5
+
+            prevfy = varname_to_values.at[varname, "Previous Balance"]
+
+            row = varname_to_index.at[varname] + MODIFIER
+
+            formula_prevfy_value = str(templ_ws[f"{target_ls_prevfy_excelcol}{row}"].value)
+
+            # = SUM(A1:A5)
+            pattern = "= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)"
+            formula_prevfy_str = re.search(pattern, formula_prevfy_value)
+            if formula_prevfy_str is not None:
+                ori_start_letter = formula_prevfy_str.group(1)
+                ori_start_row = formula_prevfy_str.group(2)
+                char = formula_prevfy_str.group(3)
+                ori_end_letter = formula_prevfy_str.group(4)
+                ori_end_row = formula_prevfy_str.group(5)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_prevfy_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+
+                templ_ws[f'{prevfy_excelcol}{row}'].value = new_prevfy_formula
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 3)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 3)
+
+                new_currfy_formula = f"= SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
+
+                templ_ws[f'{currfy_excelcol}{row}'].value = new_currfy_formula
+
+            # = A1 - A5
+            pattern = "= ([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)"
+            formula_prevfy_str = re.search(pattern, formula_prevfy_value)
+            if formula_prevfy_str is not None:
+                ori_start_letter = formula_prevfy_str.group(1)
+                ori_start_row = formula_prevfy_str.group(2)
+                char = formula_prevfy_str.group(3)
+                ori_end_letter = formula_prevfy_str.group(4)
+                ori_end_row = formula_prevfy_str.group(5)
+
+                new_start_row = str(int(ori_start_row) + MODIFIER)
+                new_end_row = str(int(ori_end_row) + MODIFIER)
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 2)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 2)
+
+                new_prevfy_formula = f"= {new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row}"
+
+                templ_ws[f'{prevfy_excelcol}{row}'].value = new_prevfy_formula
+
+                new_start_letter = self._get_col_letter_from_ref(ori_start_letter, 3)
+                new_end_letter = self._get_col_letter_from_ref(ori_end_letter, 3)
+
+                new_currfy_formula = f"= {new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row}"
+
+                templ_ws[f'{currfy_excelcol}{row}'].value = new_currfy_formula
+        
+        
+    
+
+
 
         # titles
         row = 8 #TODO: should not hardcode
