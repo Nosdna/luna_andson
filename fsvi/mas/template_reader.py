@@ -119,13 +119,30 @@ class MASTemplateReader_Form1:
             pyeasylib.assert_no_duplicates(varname_to_lscodes.index)
 
             # NOTE: edited by SJ to accommodate formulas on mapping template 20240111
-            varname_to_lscodes_temp = varname_to_lscodes.copy().astype(str)
-            pattern = ".*=.*"
-            varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
-            varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
-            pattern2 = ".*<<<.*>>>.*"
-            varname_to_lscodes_ls = varname_to_lscodes_ls[~varname_to_lscodes_temp.str.contains(pattern2)]
-            varname_to_lscodes_f1 = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern2)]
+            varname_to_lscodes_temp = varname_to_lscodes.copy()
+            varname_to_lscodes_temp = varname_to_lscodes_temp.to_frame()
+            # varname_to_lscodes_temp["L/S (intervals)"] = varname_to_lscodes_temp["L/S (intervals)"].astype(str)
+            substr = "="
+            varname_to_lscodes_ls = varname_to_lscodes_temp[~varname_to_lscodes_temp["L/S (intervals)"].astype(str).apply(lambda x: any(substr in item for item in x))]
+            varname_to_lscodes_formula = varname_to_lscodes_temp[varname_to_lscodes_temp["L/S (intervals)"].astype(str).apply(lambda x: any(substr in item for item in x))]
+            substr2 = "<"
+            varname_to_lscodes_ls = varname_to_lscodes_ls[~varname_to_lscodes_ls["L/S (intervals)"].astype(str).apply(lambda x: any(substr2 in item for item in x))]
+            varname_to_lscodes_f1 = varname_to_lscodes_ls[varname_to_lscodes_temp["L/S (intervals)"].astype(str).apply(lambda x: any(substr2 in item for item in x))]
+
+            varname_to_lscodes_ls = varname_to_lscodes_ls["L/S (intervals)"].squeeze()
+            varname_to_lscodes_formula = varname_to_lscodes_formula["L/S (intervals)"].squeeze()
+            varname_to_lscodes_f1 = varname_to_lscodes_f1["L/S (intervals)"].squeeze()
+        
+
+
+            if False:
+                varname_to_lscodes_temp = varname_to_lscodes.copy().astype(str)
+                pattern = "^['=.*']$"
+                varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
+                varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
+                pattern2 = ".*<<<.*>>>.*"
+                varname_to_lscodes_ls = varname_to_lscodes_ls[~varname_to_lscodes_temp.str.contains(pattern2)]
+                varname_to_lscodes_f1 = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern2)]
 
 
             # convert to intervals
@@ -159,7 +176,7 @@ class MASTemplateReader_Form1:
 
         full_frame = self.varname_to_lscodes.copy()
         full_frame_temp = full_frame.copy().astype(str)
-        pattern = ".*=.*"
+        pattern = "^\['=.*"
         formula_frame = full_frame[full_frame_temp.str.contains(pattern)]
 
         return formula_frame
@@ -281,10 +298,20 @@ class MASTemplateReader_Form3:
             varname_to_lscodes = varname_to_lscodes[varname_to_lscodes.apply(lambda s:s!= ['nan'])]
 
             # NOTE: edited by SJ to accommodate formulas on mapping template 20240111
-            varname_to_lscodes_temp = varname_to_lscodes.copy().astype(str)
-            pattern = ".*=.*"
-            varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
-            varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
+            # varname_to_lscodes_temp = varname_to_lscodes.copy().astype(str)
+            # pattern = "^=.*"
+            # varname_to_lscodes_ls = varname_to_lscodes[~varname_to_lscodes_temp.str.contains(pattern)]
+            # varname_to_lscodes_formula = varname_to_lscodes[varname_to_lscodes_temp.str.contains(pattern)]
+
+            varname_to_lscodes_temp = varname_to_lscodes.copy()
+            varname_to_lscodes_temp = varname_to_lscodes_temp.to_frame()
+            # varname_to_lscodes_temp["L/S (intervals)"] = varname_to_lscodes_temp["L/S (intervals)"].astype(str)
+            substr = "="
+            varname_to_lscodes_ls = varname_to_lscodes_temp[~varname_to_lscodes_temp["L/S (intervals)"].astype(str).apply(lambda x: any(substr in item for item in x))]
+            varname_to_lscodes_formula = varname_to_lscodes_temp[varname_to_lscodes_temp["L/S (intervals)"].astype(str).apply(lambda x: any(substr in item for item in x))]
+           
+            varname_to_lscodes_ls = varname_to_lscodes_ls["L/S (intervals)"].squeeze()
+            varname_to_lscodes_formula = varname_to_lscodes_formula["L/S (intervals)"].squeeze()
 
             # convert to intervals
             varname_to_lscodes_ls = varname_to_lscodes_ls.apply(misc.convert_list_of_string_to_interval)

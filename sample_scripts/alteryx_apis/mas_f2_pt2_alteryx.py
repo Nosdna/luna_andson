@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
-    if True:
+    if False:
         args = parser.parse_args()
         aic_name = args.aic_name
         current_qtr = args.current_qtr
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if False:
+    if True:
         # fy                          = 2022
         # client_number               = 71679
         # credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"

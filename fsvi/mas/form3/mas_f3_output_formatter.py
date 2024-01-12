@@ -180,11 +180,18 @@ class OutputFormatter:
         for excelcol in lst_of_excelcols:
             ws[f"{excelcol}{row}"].number_format = '#,##0.00'
 
-    def _replace_empty_value(self, ws, excelcol, row):
+    def _replace_ls_null_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
 
-        if cell.value in [999999999, '999999999']:
-            cell.value = None
+        if cell_value_str == '999999999':
+            cell.value = "<<<No L/S code assigned>>>"
+
+    def _replace_ls_total_value(self, ws, excelcol, row):
+        cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
+        if re.match("=.*", cell_value_str):
+            cell.value = "<<<Total>>>"
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
         
@@ -330,8 +337,8 @@ class OutputFormatter:
                 templ_ws[f"{header_3_excelcol}{row}"].value = sig_acct_name
 
             # Replace values declared with 999999999 with None instead
-            self._replace_empty_value(templ_ws, target_ls_prevfy_excelcol, row)
-            self._replace_empty_value(templ_ws, target_ls_currfy_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_prevfy_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_currfy_excelcol, row)
 
             # Create formula for variance column to compare values of client vs rsm
             self._create_var_formula(templ_ws, prevfy_excelcol, row, prevfy)
@@ -447,7 +454,9 @@ class OutputFormatter:
                 templ_ws[f'{currfy_excelcol}{row}'].value = new_currfy_formula
         
         
-    
+            # Replace values declared with L/S with <<<>>> indicator instead
+            self._replace_ls_total_value(templ_ws, target_ls_prevfy_excelcol, row)
+            self._replace_ls_total_value(templ_ws, target_ls_currfy_excelcol, row)
 
 
 

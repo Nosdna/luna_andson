@@ -180,11 +180,19 @@ class OutputFormatter:
         for excelcol in lst_of_excelcols:
             ws[f"{excelcol}{row}"].number_format = '#,##0.00'
 
-    def _replace_empty_value(self, ws, excelcol, row):
+    def _replace_ls_null_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
 
-        if cell.value in [999999999, '999999999']:
-            cell.value = None
+        if cell_value_str == '999999999':
+            cell.value = "<<<No L/S code assigned>>>"
+
+    def _replace_ls_total_value(self, ws, excelcol, row):
+        cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
+
+        if re.match("=.*", cell_value_str):
+            cell.value = "<<<Total>>>"
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
         
@@ -309,8 +317,8 @@ class OutputFormatter:
             templ_ws[f"{subtotal_excelcol}{row}"].value = subtotal
 
             # Replace values declared with 999999999 with None instead
-            self._replace_empty_value(templ_ws, target_ls_amt_excelcol, row)
-            self._replace_empty_value(templ_ws, target_ls_subtotal_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_amt_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_subtotal_excelcol, row)
 
             # Create formula for variance column to compare values of client vs rsm
             self._create_var_formula(templ_ws, amt_excelcol, row, amt)
@@ -348,7 +356,7 @@ class OutputFormatter:
         self._section_column_formatting(templ_ws, "var", target_var_amt_excelcol)
         
         self._create_header(templ_ws)
-
+        
         # adjust total and subtotal formulas
         # filtered_varname_to_values = varname_to_values[varname_to_values.index.str.match(r"^total_.*")]
         varname_to_values_temp = varname_to_values.copy()
@@ -366,7 +374,7 @@ class OutputFormatter:
 
             formula_subtotal_value = str(templ_ws[f"{target_ls_subtotal_excelcol}{row}"].value)
 
-            pattern = "= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)"
+            pattern = "^= SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)$"
             formula_str = re.search(pattern, formula_subtotal_value)
             if formula_str is not None:
                 ori_start_letter = formula_str.group(1)
@@ -386,7 +394,7 @@ class OutputFormatter:
                 templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
 
             # currently for only one pattern which is net trade debtors (= XXX - SUM(XXX:XXX))
-            pattern = "= ([A-Z]+)(\d+)\s*(.)\s*SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)"
+            pattern = "^= ([A-Z]+)(\d+)\s*(.)\s*SUM\(([A-Z]+)(\d+)\s*(.)\s*([A-Z]+)(\d+)\)$"
             formula_str = re.search(pattern, formula_subtotal_value)
             if formula_str is not None:
                 ori_net_letter = formula_str.group(1)
@@ -409,6 +417,12 @@ class OutputFormatter:
                 new_formula = f"= {new_net_letter}{new_net_row} {net_char} SUM({new_start_letter}{new_start_row}{char}{new_end_letter}{new_end_row})"
 
                 templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # Replace values declared with L/S with <<<>>> indicator instead
+            self._replace_ls_total_value(templ_ws, target_ls_subtotal_excelcol, row)
+
+
+        
 
         # titles
         row = 8 #TODO: should not hardcode
@@ -455,7 +469,7 @@ if __name__ == "__main__":
                                aic_name     = aic_name
                                )
         
-    if True:
+    if False:
         import webbrowser
         webbrowser.open(output_fp)
     

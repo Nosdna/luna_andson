@@ -142,6 +142,16 @@ class MASForm1_Generator:
         
         # get varname to ls code from mapper
         varname_to_lscodes = mapper_class.varname_to_lscodes
+
+        # NOTE: edited by SJ to accommodate formulas on mapping template 20240111
+        varname_to_lscodes_temp = varname_to_lscodes.copy()
+        varname_to_lscodes_temp = varname_to_lscodes_temp.to_frame()
+        pattern = ".*Interval.*"
+        varname_to_lscodes_temp["filter"] = np.where(varname_to_lscodes_temp["L/S (intervals)"].astype(str).str.match(pattern), "yes", "no")
+        varname_to_lscodes_ls = varname_to_lscodes_temp[varname_to_lscodes_temp["filter"] == "yes"]["L/S (intervals)"].squeeze()
+        varname_to_lscodes_formula = varname_to_lscodes_temp[varname_to_lscodes_temp["filter"] == "no"]["L/S (intervals)"].squeeze()
+        
+        varname_to_lscodes = varname_to_lscodes_ls
         
         # get the tb for the current fy
         tb_df = tb_class.get_data_by_fy(self.fy).copy()
@@ -158,6 +168,8 @@ class MASForm1_Generator:
             
             # Update the main table
             tb_df[varname] = is_overlap
+        
+        varname_to_lscodes = pd.concat([varname_to_lscodes, varname_to_lscodes_formula], axis = 0)
 
         #
         self.tb_columns_main = tb_columns
@@ -173,21 +185,31 @@ class MASForm1_Generator:
         return filtered_tb
 
     def _get_total_by_varname(self, varname):
-
+        
         # Get interval list from varname (template) 
         interval_list = self.mapper_class.get_ls_codes_by_varname(varname)
 
-        # Get the TB accounts that overlap in the interval list
-        boolean, true_match, false_match = \
-            self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, interval_list)
+        try: # NOTE: Added by SJ on 20240111
+
+            # Get the TB accounts that overlap in the interval list
+            boolean, true_match, false_match = \
+                self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, interval_list)
+            
+            # Return the total
+            total = true_match["Value"].sum()
         
-        # Return the total
-        total = true_match["Value"].sum()
+        except:
+
+            print(f"Could not convert to interval for {varname}.")
+            total = 0
+        
         return total
 
     def map_tb_to_output(self):
         # Loop through the varnames in the template and append the balances from the tb
         varname_df = self.outputdf["var_name"].dropna()
+
+        
 
         self.outputdf["Balance"] = varname_df.apply(self._get_total_by_varname)
 

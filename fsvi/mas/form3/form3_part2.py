@@ -213,11 +213,14 @@ if __name__ == "__main__":
     luna_folderpath = os.path.dirname(luna_init_file)
     print (f"Your luna library is at {luna_folderpath}.")
 
+    fy = 2022
+    client_number = 7167
+
     if True:
         fp_dict = {
                 # 'sig_acct_output_fp'       : r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output.xlsx",
-                'output_fp'       : r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022_part1.xlsx",
-                'final_output_fp' : r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
+                'output_fp'       : rf"D:\workspace\luna\personal_workspace\tmp\mas_form3_{client_number}_{fy}_part1.xlsx",
+                'final_output_fp' : rf"D:\workspace\luna\personal_workspace\tmp\mas_form3_{client_number}_{fy}.xlsx"
                 }
     
     if True:
@@ -237,8 +240,7 @@ if __name__ == "__main__":
         spec.loader.exec_module(settings)
 
     if True:
-        fy = 2022
-        client_number = 7167
+        
         outputdf_fp = fp_dict['output_fp']
 
         # ocr class

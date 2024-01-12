@@ -180,11 +180,19 @@ class OutputFormatter:
         for excelcol in lst_of_excelcols:
             ws[f"{excelcol}{row}"].number_format = '#,##0.00'
 
-    def _replace_empty_value(self, ws, excelcol, row):
+    def _replace_ls_null_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
 
-        if cell.value in [999999999, '999999999']:
-            cell.value = None
+        if cell_value_str == '999999999':
+            cell.value = "<<<No L/S code assigned>>>"
+
+    def _replace_ls_total_value(self, ws, excelcol, row):
+        cell = ws[f"{excelcol}{row}"]
+        cell_value_str = str(cell.value)
+
+        if re.match("=.*", cell_value_str):
+            cell.value = "<<<Total>>>"
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
         
@@ -316,14 +324,14 @@ class OutputFormatter:
             templ_ws[f"{subtotal_excelcol}{row}"].value = subtotal
 
             # Replace values declared with 999999999 with None instead
-            self._replace_empty_value(templ_ws, target_ls_amt_excelcol, row)
-            self._replace_empty_value(templ_ws, target_ls_subtotal_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_amt_excelcol, row)
+            self._replace_ls_null_value(templ_ws, target_ls_subtotal_excelcol, row)
 
-            # TODO: temporary measure for H56
-            if templ_ws[f"{subtotal_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{subtotal_excelcol}{row}"].value = None
-            if templ_ws[f"{amt_excelcol}{row}"].value in [999999999, '999999999']:
-                templ_ws[f"{amt_excelcol}{row}"].value = None
+            # # TODO: temporary measure for H56
+            # if templ_ws[f"{subtotal_excelcol}{row}"].value in [999999999, '999999999']:
+            #     templ_ws[f"{subtotal_excelcol}{row}"].value = None
+            # if templ_ws[f"{amt_excelcol}{row}"].value in [999999999, '999999999']:
+            #     templ_ws[f"{amt_excelcol}{row}"].value = None
 
             # Create formula for variance column to compare values of client vs rsm
             self._create_var_formula(templ_ws, amt_excelcol, row, amt)
@@ -556,6 +564,10 @@ class OutputFormatter:
                 new_formula = f"= MIN({new_start_letter}{new_start_row} * 100, 10000000)"
 
                 templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
+
+            # Replace values declared with L/S with <<<>>> indicator instead
+            self._replace_ls_total_value(templ_ws, target_ls_subtotal_excelcol, row)
+
 
         # titles
         row = 8 #TODO: should not hardcode

@@ -136,6 +136,17 @@ class MASForm3_Generator:
         
         # get varname to ls code from mapper
         varname_to_lscodes = mapper_class.varname_to_lscodes
+
+        # NOTE: edited by SJ to accommodate formulas on mapping template 20240111
+        varname_to_lscodes_temp = varname_to_lscodes.copy()
+        varname_to_lscodes_temp = varname_to_lscodes_temp.to_frame()
+        pattern = ".*Interval.*"
+        varname_to_lscodes_temp["filter"] = np.where(varname_to_lscodes_temp["L/S (intervals)"].astype(str).str.match(pattern), "yes", "no")
+        varname_to_lscodes_ls = varname_to_lscodes_temp[varname_to_lscodes_temp["filter"] == "yes"]["L/S (intervals)"].squeeze()
+        varname_to_lscodes_formula = varname_to_lscodes_temp[varname_to_lscodes_temp["filter"] == "no"]["L/S (intervals)"].squeeze()
+        
+        varname_to_lscodes = varname_to_lscodes_ls
+       
         
         # get the tb for the current fy
         tb_df = tb_class.get_data_by_fy(self.fy).copy()
@@ -152,6 +163,7 @@ class MASForm3_Generator:
             
             # Update the main table
             tb_df[varname] = is_overlap
+        varname_to_lscodes = pd.concat([varname_to_lscodes, varname_to_lscodes_formula], axis = 0)
 
         #
         self.tb_columns_main = tb_columns

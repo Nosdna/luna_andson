@@ -91,6 +91,9 @@ class MASForm2_Generator_Part2:
         self.map_adjusted_asset()
         self.map_avg_adjusted_asset()
         self.map_aa_threshold()
+
+        self.clean_subtotal_col()
+
         self.column_mapper()
         self.output_excel()
         self.output_excel_trr()
@@ -958,6 +961,15 @@ class MASForm2_Generator_Part2:
         # Map amt to Template  
         self.add_bal_to_template_by_varname(aa_adjusted_assets_threshold_varname, threshold)
 
+    def clean_subtotal_col(self):
+        
+        outputdf = self.outputdf.copy()
+        pattern = ".*=.*"
+        outputdf["Subtotal"] = np.where(outputdf["Subtotal"].astype(str).str.match(pattern), None, outputdf["Subtotal"])
+        pattern2 = "<<<.*"
+        outputdf["Subtotal"] = np.where(outputdf["Subtotal"].astype(str).str.match(pattern2), None, outputdf["Subtotal"])
+        self.outputdf = outputdf
+
     def column_mapper(self):
 
         # Map the Balance amounts to the correct field in F1; whether in the Amount or Subtotal column
@@ -1313,7 +1325,7 @@ if __name__ == "__main__":
 
     # TESTER
     if True:
-        client_number = 71679
+        client_number = 7167
         fy = 2022
         current_quarter_end_date = '2022-12-31'
        
@@ -1417,7 +1429,7 @@ if __name__ == "__main__":
         settings = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(settings)
 
-        credit_quality_output_fn = f"mas_f2_{client_number}_{fy}_credit_quality.xlsx"
+        credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
         credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn)
  
         # ocr class
