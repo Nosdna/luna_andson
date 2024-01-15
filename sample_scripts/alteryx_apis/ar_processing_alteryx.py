@@ -8,6 +8,7 @@ import sys
 import argparse
 import importlib.util
 import re
+import pandas as pd
 
 # Set luna path - Load from settings.py
 if True:
@@ -42,6 +43,7 @@ if __name__ == "__main__":
     # parser.add_argument("--client_fy", required=True)
     parser.add_argument("--file_fp", required=True)
     parser.add_argument("--file_format", required = True)
+    parser.add_argument("--sheet_name", required = True)
     
     # Parse the information
     if True:
@@ -50,6 +52,7 @@ if __name__ == "__main__":
         # fy = args.client_fy
         file_fp = args.file_fp
         file_format = args.file_format
+        sheet_name = args.sheet_name
 
         
     #############################################
@@ -57,14 +60,16 @@ if __name__ == "__main__":
     if False:
         # client_number = 40709
         # fy = 2022
-        file_fp = r"D:\workspace\luna\personal_workspace\db\input_file.xlsx"
+        # file_fp = r"D:\workspace\luna\personal_workspace\db\input_file.xlsx"
+        file_fp = r"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\MG\input_file_mg_format1.xlsx"
         file_format = "format1"
+        sheet_name = "AR_Aged"
     #############################################
 
     #process file_fp string
     file_fp = re.findall("r?(.*\.xlsx)|||.*", file_fp)[0]
 
-    self = common.AgedReceivablesReader_Format1(file_fp, sheet_name = "AR_Aged_format1",
+    self = common.AgedReceivablesReader_Format1(file_fp, sheet_name = sheet_name,
                                                 variance_threshold = 0.01)
     
     self.main()
@@ -102,4 +107,4 @@ if __name__ == "__main__":
     ar.to_excel(output_fp, index = False)
     
     print (f"Saved to {output_fp}.")
-        
+    

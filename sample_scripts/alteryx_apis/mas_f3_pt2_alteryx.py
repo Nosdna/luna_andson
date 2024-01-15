@@ -42,19 +42,17 @@ if __name__ == "__main__":
 
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--aic_name", required=True)
+    # parser.add_argument("--aic_name", required=True)
     
     # Parse the information
     if True:
         args = parser.parse_args()
-        aic_name = args.aic_name
 
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
         fy              = 2022
         client_number   = 7167
-        aic_name        = "John Smith"
     #############################################
         
     # Get the luna folderpath 
@@ -93,6 +91,12 @@ if __name__ == "__main__":
 
     # Initialise client_class
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
+
+    # Retrieve AIC username
+    user_response_class = lunahub.tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
+            client_number,
+            fy)
+    aic_name = user_response_class.read_from_lunahub()["UPLOADER"].unique()[0]
 
     # Run OutputProcessor
     template_fn = r"parameters\mas_forms_tb_mapping.xlsx"

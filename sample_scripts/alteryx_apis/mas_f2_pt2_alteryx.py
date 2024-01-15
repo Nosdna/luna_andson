@@ -32,6 +32,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
+from luna.fsvi.mas.form2.form2_part2 import MASForm2_Generator_Part2
 from luna.fsvi.mas.form2.mas_f2_output_formatter import OutputFormatter
 
 # Import help lib
@@ -43,7 +44,7 @@ if __name__ == "__main__":
 
     # Specify the cmd line arguments requirement    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--aic_name", required=True)
+    # parser.add_argument("--aic_name", required=True)
     parser.add_argument("--current_qtr", required=True)
     parser.add_argument("--awp_fp", required=False)
     # parser.add_argument("--client_number", required=True)
@@ -51,9 +52,9 @@ if __name__ == "__main__":
     # parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()
-        aic_name = args.aic_name
+        # aic_name = args.aic_name
         current_qtr = args.current_qtr
         awp_fp = args.awp_fp
         # client_number = args.client_number
@@ -63,15 +64,16 @@ if __name__ == "__main__":
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         # fy                          = 2022
         # client_number               = 71679
         # credit_quality_output_fp    = rf"D:\workspace\luna\personal_workspace\tmp\mas_f2_{client_number}_{fy}_credit_quality.xlsx"
-        aic_name                    = "John Smith"
+        # aic_name                    = "John Smith"
         current_qtr                 = "2022-12-31"
+        awp_fp                      = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
         # final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
-        
+    
     # Get the luna folderpath 
     luna_init_file = luna.__file__
     luna_folderpath = os.path.dirname(luna_init_file)
@@ -81,8 +83,8 @@ if __name__ == "__main__":
     pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form2_*_*_credit_quality.xlsx")
     list_of_files = glob.glob(pattern)
     cred_quality_fp = max(list_of_files, key=os.path.getctime)
-    client_number = re.findall("mas_form2_(\d+)_\d{4}_credit_quality.xlsx", cred_quality_fp)[0]
-    fy = re.findall("mas_form2_\d+_(\d+)_credit_quality.xlsx", cred_quality_fp)[0]
+    client_number = int(re.findall("mas_form2_(\d+)_\d{4}_credit_quality.xlsx", cred_quality_fp)[0])
+    fy = int(re.findall("mas_form2_\d+_(\d+)_credit_quality.xlsx", cred_quality_fp)[0])
 
     # Load AR from LunaHub
     if True:
@@ -115,7 +117,7 @@ if __name__ == "__main__":
 
     # ocr class
     ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
-    ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
+    ocr_fp = os.path.join(settings.LUNA_FOLDERPATH, "personal_workspace", "tmp", ocr_fn)
     ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
 
 
@@ -145,12 +147,8 @@ if __name__ == "__main__":
     # output_folderpath = rf"D:\workspace\luna\personal_workspace\tmp"
     credit_quality_output_fn = f"mas_form2_{client_number}_{fy}_credit_quality.xlsx"
     credit_quality_output_fp = os.path.join(settings.TEMP_FOLDERPATH, credit_quality_output_fn) 
-    
-    # awp fp
-    awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
-    
 
-    self = fsvi.mas.MASForm2_Generator_Part2(tb_class,
+    self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
                                     gl_class,
                                     aged_ar_class,
@@ -164,6 +162,7 @@ if __name__ == "__main__":
                                     current_qtr,
                                     user_inputs = user_inputs
                                     )
+    
     
     # Specify temp file
     output_fn = f"mas_form2_{client_number}_{fy}.xlsx"
@@ -183,6 +182,9 @@ if __name__ == "__main__":
     # Initialise client_class
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
 
+    # Retrieve AIC username
+    aic_name = user_response_class.df_client["UPLOADER"].unique()[0]
+
     # Format output
     formatting_class = OutputFormatter(output_fp, final_output_fp, ocr_fp, client_class, fy, aic_name)
 
@@ -192,7 +194,7 @@ if __name__ == "__main__":
     if True:
         import webbrowser
         webbrowser.open(final_output_fp)
-        webbrowser.open(self.awp_fp)
+        webbrowser.open(self.awp_output_fp)
     
     
     

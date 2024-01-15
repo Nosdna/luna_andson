@@ -191,8 +191,14 @@ class OutputFormatter:
         cell = ws[f"{excelcol}{row}"]
         cell_value_str = str(cell.value)
 
-        if re.match("=.*", cell_value_str):
+        if re.match("= MIN.*", cell_value_str):
+            cell.value = "<<<Threshold result>>>"
+        elif re.match("= .*100%.*", cell_value_str):
+            cell.value = "<<<Ratio>>>"
+        elif re.match("=.*", cell_value_str):
             cell.value = "<<<Total>>>"
+        else:
+            pass
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
         

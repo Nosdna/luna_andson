@@ -10,6 +10,9 @@ personal_workspace/
 # To ignore this file in git.
 *~$*.xlsx
 
+# Ignore var_map.xlsx
+*var_map.xlsx
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

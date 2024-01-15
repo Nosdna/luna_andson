@@ -40,8 +40,7 @@ class MASForm3_Generator:
     
     FOREX_LS_CODES = [pd.Interval(7410.200, 7410.300, closed = "both")]
     EXCLUDE_TAX = [pd.Interval(7000.000,7500.000, closed = 'left')]
-        
-
+    SIG_ACC_THRESHOLD = 0.00005
     
     def __init__(self, 
                  tb_class, mapper_class,
@@ -756,7 +755,7 @@ class MASForm3_Generator:
             logger.error(f"Account type '{account_type}' specified is not supported."
                          "Please indicate a different account type.")
 
-        return abs(total * 0.00005)
+        return abs(total * MASForm3_Generator.SIG_ACC_THRESHOLD)
     
     def filter_tb_by_amount(self, amount, filter_type, tb):
 

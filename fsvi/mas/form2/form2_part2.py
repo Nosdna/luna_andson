@@ -170,6 +170,7 @@ class MASForm2_Generator_Part2:
 
         # added by SJ
         gl = self._process_gl(gl_preprocess)
+        #
         
         gl["Posting Date"] = pd.to_datetime(gl["Posting Date"], 
                                                 dayfirst=True)
@@ -400,8 +401,8 @@ class MASForm2_Generator_Part2:
 
         self.col_name_3 = calendar.month_abbr[month_end] + '-'+ str(fy)[-2:] # e.g. Dec
         deductions_df.rename(columns={"Balance": self.col_name_3}, inplace=True) 
-        self.col_name_2 = calendar.month_abbr[month_end-2] + '-'+ str(fy)[-2:]  # e.g.Nov
-        self.col_name_1 = calendar.month_abbr[month_end-1] + '-'+ str(fy)[-2:] # e.g.Oct
+        self.col_name_2 = calendar.month_abbr[month_end-1] + '-'+ str(fy)[-2:]  # e.g.Nov
+        self.col_name_1 = calendar.month_abbr[month_end-2] + '-'+ str(fy)[-2:] # e.g.Oct
 
         col_names = deductions_df.columns.tolist()
         col_names.insert(-1,self.col_name_2)
@@ -1100,11 +1101,12 @@ class MASForm2_Generator_Part2:
         # Has AAA exceeded the above threshold?
         sheet['I31']= '=IF((I21<I26)*(I21<I27),"No","Yes")'
         
-        awp_fn = f"mas_form2_{self.client_number}_{self.fy}_awp.xlsx"
-        awp_fp = os.path.join(self.temp_fp, awp_fn)
-        self.awp_fp = awp_fp
+        awp_output_fn = f"mas_form2_{self.client_number}_{self.fy}_awp.xlsx"
+        awp_output_fp = os.path.join(self.temp_fp, awp_output_fn)
+        self.awp_output_fp = awp_output_fp
 
-        wb.save(awp_fp)
+        wb.save(self.awp_output_fp)
+        wb.close()
 
 #### Output for auditors (TRR)
     def output_excel_trr(self):
@@ -1113,7 +1115,7 @@ class MASForm2_Generator_Part2:
 
         # To open the workbook 
         # workbook object is created
-        wb = openpyxl.load_workbook(self.awp_fp)
+        wb = openpyxl.load_workbook(self.awp_output_fp)
         
         # Get workbook active sheet object
         sheet = wb[ws_name]
@@ -1279,7 +1281,8 @@ class MASForm2_Generator_Part2:
         sheet["E94"] = "=E90*0.02"
 
         # Save the workbook
-        wb.save(self.awp_fp)
+        wb.save(self.awp_output_fp)
+        wb.close()
 
     def write_output(self, output_fp = None):
         

@@ -188,10 +188,15 @@ class GLLoader_From_LunaHub:
         
         lunahub_obj = self._connect_to_lunahub()
         
+        # query = (
+        #     "SELECT * FROM gl "
+        #     "WHERE "
+        #     f"([CLIENTNUMBER] = {self.client_number}) AND (YEAR([DATE]) = {self.fy})"
+        #     )
         query = (
             "SELECT * FROM gl "
             "WHERE "
-            f"([CLIENTNUMBER] = {self.client_number}) AND (YEAR([DATE]) = {self.fy})"
+            f"([CLIENTNUMBER] = {self.client_number}) AND ([FY] = {self.fy})"
             )
                 
         df = lunahub_obj.read_table(query = query)
@@ -201,7 +206,7 @@ class GLLoader_From_LunaHub:
         
         if (version_df.shape[0] > 1):
             
-            if uploaddatetime is None:
+            if self.uploaddatetime is None:
                 
                 if True:
                     versions = version_df["UPLOADDATETIME"]
@@ -331,7 +336,7 @@ if __name__ == "__main__":
 
     if True:
 
-        client_number   = 40709
+        client_number   = 7167
         fy              = 2022
 
         self = GLLoader_From_LunaHub(client_number, fy)
