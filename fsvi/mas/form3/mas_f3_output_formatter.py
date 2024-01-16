@@ -186,12 +186,17 @@ class OutputFormatter:
 
         if cell_value_str == '999999999':
             cell.value = "<<<No L/S code assigned>>>"
+        
+        # next_col = self._get_col_letter_from_ref(excelcol, 1)
+        # ws.merge_cells(f"{excelcol}{row}:{next_col}{row}")
 
     def _replace_ls_total_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
         cell_value_str = str(cell.value)
         if re.match("=.*", cell_value_str):
             cell.value = "<<<Total>>>"
+        # next_col = self._get_col_letter_from_ref(excelcol, 1)
+        # ws.merge_cells(f"{excelcol}{row}:{next_col}{row}")
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
         
@@ -350,6 +355,11 @@ class OutputFormatter:
                                 target_ocr_prevfy_excelcol, target_ocr_currfy_excelcol
                                 ]
             self._standardise_number_format(templ_ws, lst_of_excelcols, row)
+
+            # next_col = self._get_col_letter_from_ref(target_ls_currfy_excelcol, 1)
+            # templ_ws.merge_cells(f"{target_ls_currfy_excelcol}{row}:{next_col}{row}")
+            next_col = self._get_col_letter_from_ref(target_ls_prevfy_excelcol, 1)
+            templ_ws.merge_cells(f"{target_ls_prevfy_excelcol}{row}:{next_col}{row}")
 
         for varname in varname_to_values_ocr.index:
             prevfy_ocr = varname_to_values_ocr.at[varname, "Previous Balance"]

@@ -186,7 +186,7 @@ class MASForm2_Generator_Part2:
         gl = gl.merge(tb, how = "left",
                       left_on = "GL Account No",
                       right_on = "Account No")
-        gl = gl.rename(columns = {"Value" : "Opening Balance"})
+        gl = gl.rename(columns = {"Value" : "Ending Balance"})
         
         column_order = [
                         "GL Account No",
@@ -197,7 +197,7 @@ class MASForm2_Generator_Part2:
                         "Debit",
                         "Credit",
                         "Amount",
-                        "Opening Balance"
+                        "Ending Balance"
                         ]
         gl = gl.loc[:, column_order]
 
@@ -207,17 +207,48 @@ class MASForm2_Generator_Part2:
         self.gl_mvmt = filtered_gl.groupby([
             "GL Account No", 
             "GL Account Name"]).agg({"Amount": "sum", 
-                                     "Opening Balance": "first"})
+                                     "Ending Balance": "first"})
+        self.gl_mvmt["Ending Balance"].fillna(0, inplace = True)
         self.gl_mvmt.rename(columns={"Amount": "GL Movement"}, inplace=True)
-        self.gl_mvmt["Ending Balance"] = self.gl_mvmt["GL Movement"] + self.gl_mvmt["Opening Balance"]
+        self.gl_mvmt["Opening Balance"] = self.gl_mvmt["Ending Balance"] - self.gl_mvmt["GL Movement"]
         self.gl_mvmt.reset_index(inplace=True)
         return self.gl_mvmt
+    
+    def _get_ending_balance_by_month(self, filtered_gl, gl_with_ob):
+        self.gl_mvmt = filtered_gl.groupby([
+            "GL Account No", 
+            "GL Account Name"]).agg({"Amount": "sum"})
+        self.gl_mvmt = self.gl_mvmt.merge(gl_with_ob, how = "left", on = "GL Account No")
+        column_order = [
+                        "GL Account No",
+                        "GL Account Name",
+                        "Amount",
+                        "Opening Balance"
+                        ]
+        self.gl_mvmt = self.gl_mvmt.loc[:, column_order]
+        self.gl_mvmt.rename(columns={"Amount": "GL Movement"}, inplace=True)
+        self.gl_mvmt["Ending Balance"] = self.gl_mvmt["Opening Balance"] + self.gl_mvmt["GL Movement"]
+        column_order = [
+                        "GL Account No",
+                        "GL Account Name",
+                        "GL Movement",
+                        "Ending Balance",
+                        "Opening Balance"
+                        ]
+        self.gl_mvmt = self.gl_mvmt.loc[:, column_order]
+
+        return self.gl_mvmt
+
     
     def _get_gl_tb(self, gl, tb):
         # Get GL with TB L/S codes 
         gl_tb = tb.merge(gl, how="left", left_on="Account No", right_on="GL Account No")
 
         gl_tb["Ending Balance"] = gl_tb["Ending Balance"].fillna(gl_tb["Value"])
+
+        gl_tb["Ending Balance"].fillna(0, inplace = True)
+        gl_tb["Opening Balance"].fillna(0, inplace = True)
+        gl_tb["GL Movement"].fillna(0, inplace = True)
 
         gl_tb["L/S"] = pd.to_numeric(gl_tb["L/S"], errors='coerce')
         
@@ -237,20 +268,29 @@ class MASForm2_Generator_Part2:
         second_month = self._filter_gl(month_end-1)
         third_month = self._filter_gl(month_end)
         
-        first_month = self._get_ending_balance(first_month)
-        second_month = self._get_ending_balance(second_month)
         third_month = self._get_ending_balance(third_month)
+        second_month = self._get_ending_balance_by_month(second_month, third_month)
+        first_month = self._get_ending_balance_by_month(first_month, third_month)
+        # first_month = self._get_ending_balance(first_month)
+        # second_month = self._get_ending_balance(second_month)
+        # third_month = self._get_ending_balance(third_month)
 
         first_month = self._get_gl_tb(first_month, tb_df)
         second_month = self._get_gl_tb(second_month, tb_df)
         third_month = self._get_gl_tb(third_month, tb_df)
+
+        self.first_month = first_month
+        self.second_month = second_month
+        self.third_month = third_month
+        self.month_end = month_end
 
         return month_end, first_month, second_month, third_month
     
     def map_div_declared(self):
         varname = "upl_div_declared"
         # Dividend GL movement 
-        month_end, first_month, second_month, third_month = self.gl_ageing()
+        # month_end, first_month, second_month, third_month = self.gl_ageing()
+        third_month = self.third_month
 
         div = third_month[third_month["L/S"]== 6900.4]
         div = div[div["Name"].str.contains("Dividend", case=False)]
@@ -261,7 +301,8 @@ class MASForm2_Generator_Part2:
     
     def map_future_tax_benefits(self):
         varname = "dfr_future_incometax_benefits"
-        month_end, first_month, second_month, third_month = self.gl_ageing()
+        # month_end, first_month, second_month, third_month = self.gl_ageing()
+        third_month = self.third_month
   
         ftb = third_month[third_month["L/S"]== 5850]
         future_tax_benefits = ftb["Value"].sum()
@@ -412,7 +453,11 @@ class MASForm2_Generator_Part2:
         self.deductions_df = deductions_df
     
     def _map_tempdf_by_ls(self, acc_list, field_varname, type=None):
-        month_end, first_month, second_month, third_month = self.gl_ageing()
+
+        # month_end, first_month, second_month, third_month = self.gl_ageing()
+        first_month = self.first_month
+        second_month = self.second_month
+        third_month = self.third_month
         
         # Convert "L/S" column to numeric values
         # third_month["L/S"] = pd.to_numeric(third_month["L/S"], errors='coerce')  
@@ -765,7 +810,11 @@ class MASForm2_Generator_Part2:
         return pd.read_excel(self.credit_quality_output_fp)
    
     def map_aa_df(self):
-        month_end, first_month, second_month, third_month = self.gl_ageing()
+        # month_end, first_month, second_month, third_month = self.gl_ageing()
+        first_month = self.first_month
+        second_month = self.second_month
+        third_month = self.third_month
+        
         aa_df = self.aa_df.copy()
 
         # On Balance sheet assets
@@ -1105,6 +1154,7 @@ class MASForm2_Generator_Part2:
         awp_output_fp = os.path.join(self.temp_fp, awp_output_fn)
         self.awp_output_fp = awp_output_fp
 
+
         wb.save(self.awp_output_fp)
         wb.close()
 
@@ -1134,21 +1184,26 @@ class MASForm2_Generator_Part2:
         puc_list  = ["puc_ord_shares", "puc_pref_share_noncumulative", "puc_reserve_fund"]
 
         datahub_currentfy.reset_index(inplace = True) # TODO: to update below
+
+        j = 0
         for i, row in enumerate(datahub_currentfy["var_name"]): 
             if row in (puc_list):
                 value = datahub_currentfy.at[i, "Balance"]
-                sheet["I"+ str(i+6)] = value #row 8,9,10
+                sheet["I"+ str(j+8)] = value #row 8,9,10
+                j+= 1
 
         # unappropriated profit or loss
         puc_unappr_profit_or_loss = datahub_currentfy.at[5, "Balance"]
         sheet["I12"] =  puc_unappr_profit_or_loss
 
         # dividend declared, interim loss 
+        j = 0
         puc_less_list = ["upl_div_declared", "upl_interim_loss"]
         for i, row in enumerate(datahub_currentfy["var_name"]): 
             if row in (puc_less_list):
                 value = datahub_currentfy.at[i, "Balance"]
-                sheet["I"+ str(i+8)] = value  #row 14,15
+                sheet["I"+ str(j+14)] = value  #row 14,15
+                j += 1
 
         # Net head office funds 
         puc_net_head_office_funds = datahub_currentfy.at[9, "Balance"]
@@ -1162,10 +1217,12 @@ class MASForm2_Generator_Part2:
          "bc_qual_subord_loans_temp", "puc_rev_reserve", "puc_other_reserves","bc_interim_unappr_profit",
          "bc_cltv_impairment_allowance"]
         
+        j = 0
         for i, row in enumerate(datahub_currentfy["var_name"]):
             if row in (fr_add_list):
                 value = datahub_currentfy.at[i, "Balance"]
-                sheet["I"+ str(i+7)] = value #row 22 to 28
+                sheet["I"+ str(j+22)] = value #row 22 to 28
+                j += 1
 
         
         fr_less_list = [ "noncurrent_asset_goodwill_ia", "dfr_future_incometax_benefits", "current_asset_other_prepayment", 
@@ -1173,12 +1230,12 @@ class MASForm2_Generator_Part2:
                 "dfr_other_unsecured_loans", "dfr_capinvst_subsidiary_associate", "noncurrent_asset_investment_in_subsi", 
                 "dfr_other_assets_nonconvertible_cash"]
 
-                     
+        j = 0
         for i, row in enumerate(datahub_currentfy["var_name"]):
             if row in (fr_less_list):
                 value = datahub_currentfy.at[i, "Balance"]
-                sheet["I"+ str(i+5)] = -value #set to negative for less   #row 29 to 38 
-
+                sheet["I"+ str(j+29)] = -value #set to negative for less   #row 29 to 38 
+                j += 1
         # Total Financial Resources ("FR")
         sheet["I40"] = "=SUM(I19:I38)"
         
