@@ -63,8 +63,8 @@ if __name__ == "__main__":
     pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_*_*_sig_accounts.xlsx")
     list_of_files = glob.glob(pattern)
     sig_acc_fp = max(list_of_files, key=os.path.getmtime)
-    client_number = re.findall("mas_form3_(\d+)_\d{4}_sig_accounts.xlsx", sig_acc_fp)[0]
-    fy = re.findall("mas_form3_\d+_(\d{4})_sig_accounts.xlsx", sig_acc_fp)[0]
+    client_number = int(re.findall("mas_form3_(\d+)_\d{4}_sig_accounts.xlsx", sig_acc_fp)[0])
+    fy = int(re.findall("mas_form3_\d+_(\d{4})_sig_accounts.xlsx", sig_acc_fp)[0])
         
     part1_output_fn = f'mas_form3_{client_number}_{fy}_part1.xlsx'
     output_fn = f'mas_form3_{client_number}_{fy}.xlsx'
@@ -73,6 +73,7 @@ if __name__ == "__main__":
 
     # ocr class
     ocr_fn = f"mas_form3_{client_number}_{fy}_alteryx_ocr.xlsx"
+    # ocr_fn = "mas_form1_{client_no}_{fy_input}_alteryx_ocr.xlsx"
     ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
     ocr_class = fsvi.mas.form3.mas_f3_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form3", luna_fp = luna_folderpath)
 

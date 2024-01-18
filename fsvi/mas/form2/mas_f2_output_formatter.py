@@ -183,8 +183,9 @@ class OutputFormatter:
     def _replace_ls_null_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
         cell_value_str = str(cell.value)
-
-        if cell_value_str == '999999999':
+        # print(f"cell: {cell} and {cell_value_str}")
+        if cell_value_str is None:
+            print(f"cell: {cell} and {cell_value_str}")
             cell.value = "<<<No L/S code assigned>>>"
 
     def _replace_ls_total_value(self, ws, excelcol, row):
@@ -193,7 +194,7 @@ class OutputFormatter:
 
         if re.match("= MIN.*", cell_value_str):
             cell.value = "<<<Threshold result>>>"
-        elif re.match("= .*100%.*", cell_value_str):
+        elif re.match("= .*100\%.*", cell_value_str):
             cell.value = "<<<Ratio>>>"
         elif re.match("=.*", cell_value_str):
             cell.value = "<<<Total>>>"

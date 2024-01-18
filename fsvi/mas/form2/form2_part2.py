@@ -591,6 +591,8 @@ class MASForm2_Generator_Part2:
     def f3_output_processing(self):
         '''
         process from Datahub 
+
+        currently not in use for first time engagements
         '''
         # Get F3 output from Datahub 
         f3_fp = r"D:\gohjiawey\Desktop\Form 3\draft_MG - Copy.xlsx"
@@ -1213,7 +1215,7 @@ class MASForm2_Generator_Part2:
         sheet["I19"] =  "=SUM(I8:I17)"
 
         # Financial Resources 
-        fr_add_list = ["puc_pref_share_cumulative", "current_liab_redeemable_pref_share, noncurrent_liab_redeemable_pref_share", 
+        fr_add_list = ["puc_pref_share_cumulative", "current_liab_redeemable_pref_share", "noncurrent_liab_redeemable_pref_share", 
          "bc_qual_subord_loans_temp", "puc_rev_reserve", "puc_other_reserves","bc_interim_unappr_profit",
          "bc_cltv_impairment_allowance"]
         
@@ -1280,17 +1282,34 @@ class MASForm2_Generator_Part2:
 
         # Total Revenue        
         sheet["E78"] = varname_dict.get("rev_total_revenue", 0) # Default to 0 if key not present
-        
+        # added by SJ: prev_fys
+        row_no = 1
+        sheet["D78"] = self.awp.fillna(0).iloc[row_no, -2]
+        sheet["C78"] = self.awp.fillna(0).iloc[row_no, -3]
+        row_no += 1
+
         # Less Fees expense 
         sheet["E79"] = -varname_dict.get("exp_fee_expense", 0)
+        # added by SJ: prev_fys
+        sheet["D79"] = self.awp.fillna(0).iloc[row_no, -2]
+        sheet["C79"] = self.awp.fillna(0).iloc[row_no, -3]
+        row_no += 1
 
         # Less Commission expense 
         agents = -varname_dict.get('exp_comm_expense_agents', 0)  
         otherbroker = -varname_dict.get('exp_comm_expense_otherbroker', 0)  
         sheet["E80"] = agents + otherbroker
+        # added by SJ: prev_fys
+        sheet["D80"] = self.awp.fillna(0).iloc[row_no, -2]
+        sheet["C80"] = self.awp.fillna(0).iloc[row_no, -3]
+        row_no += 1
         
         # Less Interest expense 
         sheet["E81"] = -varname_dict.get("exp_int_expense", 0)
+        # added by SJ: prev_fys
+        sheet["D81"] = self.awp.fillna(0).iloc[row_no, -2]
+        sheet["C81"] = self.awp.fillna(0).iloc[row_no, -3]
+        row_no += 2
 
         # Less Income or expenses not derived from ordinary activities and not expected to recur frequently or regularly 
         answer = self.user_inputs.at["non_freq_income_exp", "Answer"]
@@ -1309,6 +1328,10 @@ class MASForm2_Generator_Part2:
             income_exp_not_ord += varname_dict.get(i,0) 
 
         sheet["E83"] = -income_exp_not_ord  
+        # added by SJ: prev_fys
+        sheet["D83"] = self.awp.fillna(0).iloc[row_no, -2]
+        sheet["C83"] = self.awp.fillna(0).iloc[row_no, -3]
+        # row_no += 1
 
 
 
@@ -1358,16 +1381,26 @@ class MASForm2_Generator_Part2:
         loader_class.main()
 
     def process_ocr_output(self):
-
-        ocr_df = self.ocr_class.execute()
-
+        
         column_mapper = {"var_name" : "var_name",
                          "amount"   : "Amount",
                          "subtotal" : "Subtotal"}
-        
-        ocr_df = ocr_df[column_mapper.keys()]
-        # Map col names
-        ocr_df = ocr_df.rename(columns = column_mapper)
+
+        try:
+            ocr_df = self.ocr_class.execute()
+        except:
+            ocr_df = None
+            logger.warning("Unable to process OCR output from Alteryx."
+                           "Please check the format of the MAS form provided.")
+            
+        if ocr_df is None:
+            cols = list(column_mapper.values())
+            ocr_df = pd.DataFrame(columns = cols).set_index("var_name")
+
+        else:
+            ocr_df = ocr_df[column_mapper.keys()]
+            # Map col names
+            ocr_df = ocr_df.rename(columns = column_mapper)
 
         self.ocr_df = ocr_df
         

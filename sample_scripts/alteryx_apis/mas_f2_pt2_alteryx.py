@@ -117,6 +117,7 @@ if __name__ == "__main__":
 
     # ocr class
     ocr_fn = f"mas_form2_{client_number}_{fy}_alteryx_ocr.xlsx"
+    ocr_fn = "mas_form1_{client_no}_{fy_input}_alteryx_ocr.xlsx"
     ocr_fp = os.path.join(settings.LUNA_FOLDERPATH, "personal_workspace", "tmp", ocr_fn)
     ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
 

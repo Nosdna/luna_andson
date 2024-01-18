@@ -190,16 +190,25 @@ class MASForm3_Generator_Part2:
         loader_class.main()
 
     def process_ocr_output(self):
-
-        ocr_df = self.ocr_class.execute()
-
+        
         column_mapper = {"var_name"     : "var_name",
                          "previous_fy"  : "Previous Balance",
                          "current_fy"   : "Balance"}
-        
-        ocr_df = ocr_df[column_mapper.keys()]
-        # Map col names
-        ocr_df = ocr_df.rename(columns = column_mapper)
+
+        try:
+            ocr_df = self.ocr_class.execute()
+        except:
+            ocr_df = None
+            logger.warning("Unable to process OCR output from Alteryx."
+                           "Please check the format of the MAS form provided.")
+
+        if ocr_df is None:
+            cols = list(column_mapper.values())
+            ocr_df = pd.DataFrame(columns = cols).set_index("var_name")
+        else:
+            ocr_df = ocr_df[column_mapper.keys()]
+            # Map col names
+            ocr_df = ocr_df.rename(columns = column_mapper)
 
         self.ocr_df = ocr_df
         
