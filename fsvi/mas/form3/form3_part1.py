@@ -40,7 +40,7 @@ class MASForm3_Generator:
     
     FOREX_LS_CODES = [pd.Interval(7410.200, 7410.300, closed = "both")]
     EXCLUDE_TAX = [pd.Interval(7000.000,7500.000, closed = 'left')]
-    SIG_ACC_THRESHOLD = 0.00005
+    SIG_ACC_THRESHOLD = 0.05
     
     def __init__(self, 
                  tb_class, mapper_class,
@@ -50,12 +50,12 @@ class MASForm3_Generator:
                  user_inputs = None):
         
         
-        self.tb_class       = tb_class
-        self.mapper_class   = mapper_class
-        self.sig_acc_output_fp = sig_acc_output_fp
-        self.client_number  = client_number
-        self.fy             = fy
-        self.user_inputs    = user_inputs 
+        self.tb_class           = tb_class
+        self.mapper_class       = mapper_class
+        self.sig_acc_output_fp  = sig_acc_output_fp
+        self.client_number      = client_number
+        self.fy                 = fy
+        self.user_inputs        = user_inputs 
 
         
         self.main()
@@ -201,8 +201,17 @@ class MASForm3_Generator:
         '''           
         tb = self.tb_class.get_data_by_fy(self.fy)
 
-        baddebt_df = tb[tb["Name"].str.match(fr'(?i)bad\sdebts?')]
-        provdebt_df = tb[tb["Name"].str.match(fr'(?i)pro.*\sdebts?|do.+\sdebts?')]
+        try:
+            baddebt_df = tb[tb["Name"].str.match(fr'(?i)bad\sdebts?')]
+        except:
+            baddebt_df = None
+            logger.info("No account name containing 'bad debt' found.")
+
+        try:
+            provdebt_df = tb[tb["Name"].str.match(fr'(?i)pro.*\sdebts?|do.+\sdebts?')]
+        except:
+            provdebt_df = None
+            logger.info("No account name containing 'provisional debt' found.")
         
         #Save as attr 
         self.baddebt_df = baddebt_df
@@ -485,7 +494,7 @@ class MASForm3_Generator:
             forex = true_match["Value"].sum() 
 
             # Sum negative balances 
-            other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.4'])]
+            other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.1'])]
             other_rev = other_rev[other_rev["Value"] <0]
             other_rev = other_rev["Value"].sum()
 
@@ -968,189 +977,300 @@ class MASForm3_Generator:
             
 
 if __name__ == "__main__":
-        
-    if True:
-        # Get the luna folderpath 
-        luna_init_file = luna.__file__
-        luna_folderpath = os.path.dirname(luna_init_file)
-        logger.info(f"Your luna library is at {luna_folderpath}.")
-        
-        # Get the template folderpath
-        template_folderpath = os.path.join(luna_folderpath, "templates")
-        
-        client_number = 40709
-        engagement = 'ci'
     
-        question_list = [
-                "Enter the Account No for bad debts (NA if none): ",  
-                "Enter the Account No for provision debts (NA if none): ", 
-                "Enter Director's remuneration (0.00 if None): $ "]   
-    
-        varname_list = ["exp_bad_debts", 
-                        "exp_prov_dtf_debts", 
-                        "exp_dir_renum"
-                        ]
-        
-        user_inputs = pd.DataFrame({"Question": question_list}, index = varname_list)
-    
-        user_inputs_currfy = user_inputs.copy()
-        user_inputs_prevfy = user_inputs.copy()
-    
-        # CrossInvest
-        input_dict_currfy_ci = {'exp_bad_debts'         : '1590054',
-                                'exp_prov_dtf_debts'    : 'CW9',
-                                'exp_dir_renum'         : '677754'
-                                }
-        input_dict_prevfy_ci = {'exp_bad_debts'         : '1590054',
-                                'exp_prov_dtf_debts'    : 'CW9',
-                                'exp_dir_renum'         : '819860'
-                                }
-        
-        # MG
-        input_dict_currfy_mg = {'exp_bad_debts'         : 'NA',
-                                'exp_prov_dtf_debts'    : 'NA',
-                                'exp_dir_renum'         : '748216'
-                                }
-        input_dict_prevfy_mg = {'exp_bad_debts'         : 'NA',
-                                'exp_prov_dtf_debts'    : 'NA',
-                                'exp_dir_renum'         : '792856'
-                                }
-        
-        # ICM
-        input_dict_currfy_icm = {'exp_bad_debts'         : 'NA',
-                                 'exp_prov_dtf_debts'    : 'NA',
-                                 'exp_dir_renum'         : '619423'
-                                }
-        input_dict_prevfy_icm = {'exp_bad_debts'         : 'NA',
-                                 'exp_prov_dtf_debts'    : 'NA',
-                                 'exp_dir_renum'         : '0'
-                                }
-        
-        if engagement == 'mg':
-            user_inputs_currfy["Answer"] = [input_dict_currfy_mg[var] for var in user_inputs_currfy.index]
-            user_inputs_prevfy["Answer"] = [input_dict_prevfy_mg[var] for var in user_inputs_prevfy.index]
-            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Myer Gold Investment Management - 2022 TB.xlsx"
-            fy = 2022
-        elif engagement == 'ci':
-            user_inputs_currfy["Answer"] = [input_dict_currfy_ci[var] for var in user_inputs_currfy.index]
-            user_inputs_prevfy["Answer"] = [input_dict_prevfy_ci[var] for var in user_inputs_prevfy.index]
-            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
-            fy = 2022
-        elif engagement == 'icm':
-            user_inputs_currfy["Answer"] = [input_dict_currfy_icm[var] for var in user_inputs_currfy.index]
-            user_inputs_prevfy["Answer"] = [input_dict_prevfy_icm[var] for var in user_inputs_prevfy.index]
-            tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\icm TB reformatted.xlsx"
-            fy = 2023
-        else:
-            logger.warning("Engagement {engagement} is not recognised.")
-    
-        # # to use when reading from Alteryx
-        # alteryx_fp = {'user_inputs_currfy': ui_currfy_fp,
-        #               'user_inputs_prevfy': ui_prevfy_fp} # fp will be created when working on alteryx
-        # user_inputs_currfy = pd.read_excel(alteryx_fp['user_inputs_currfy'])
-        # user_inputs_prevfy = pd.read_excel(alteryx_fp['user_inputs_prevfy'])
-    
-    
-        fp_dict = {'aged_receivables_fp'      : r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx",
-                   'tb_fp'                    : tb_fp,
-                   'sig_acct_output_fp'       : r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output.xlsx",
-                   'sig_acct_prevfy_output_fp': r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output_prevfy.xlsx",
-                   'output_fp'                : r"D:\Documents\Project\Internal Projects\20231206 Code review\form_3_output.xlsx"}
-        
-
-    # TB
     if False:
-        #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
-        #tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
+        if True:
+            # Get the luna folderpath 
+            luna_init_file = luna.__file__
+            luna_folderpath = os.path.dirname(luna_init_file)
+            logger.info(f"Your luna library is at {luna_folderpath}.")
+            
+            # Get the template folderpath
+            template_folderpath = os.path.join(luna_folderpath, "templates")
+            
+            client_number = 40709
+            engagement = 'ci'
         
-        tb_fp = fp_dict['tb_fp']
-        logger.info(f"Your tb_filepath is at {tb_fp}.")
+            question_list = [
+                    "Enter the Account No for bad debts (NA if none): ",  
+                    "Enter the Account No for provision debts (NA if none): ", 
+                    "Enter Director's remuneration (0.00 if None): $ "]   
         
-        # Load the tb
-        fy_end_date = datetime.date(2022, 12, 31)
-        tb_class = common.TBReader_ExcelFormat1(tb_fp, 
-                                                sheet_name = 0,
-                                                fy_end_date = fy_end_date)
+            varname_list = ["exp_bad_debts", 
+                            "exp_prov_dtf_debts", 
+                            "exp_dir_renum"
+                            ]
+            
+            user_inputs = pd.DataFrame({"Question": question_list}, index = varname_list)
+        
+            user_inputs_currfy = user_inputs.copy()
+            user_inputs_prevfy = user_inputs.copy()
+        
+            # CrossInvest
+            input_dict_currfy_ci = {'exp_bad_debts'         : '1590054',
+                                    'exp_prov_dtf_debts'    : 'CW9',
+                                    'exp_dir_renum'         : '677754'
+                                    }
+            input_dict_prevfy_ci = {'exp_bad_debts'         : '1590054',
+                                    'exp_prov_dtf_debts'    : 'CW9',
+                                    'exp_dir_renum'         : '819860'
+                                    }
+            
+            # MG
+            input_dict_currfy_mg = {'exp_bad_debts'         : 'NA',
+                                    'exp_prov_dtf_debts'    : 'NA',
+                                    'exp_dir_renum'         : '748216'
+                                    }
+            input_dict_prevfy_mg = {'exp_bad_debts'         : 'NA',
+                                    'exp_prov_dtf_debts'    : 'NA',
+                                    'exp_dir_renum'         : '792856'
+                                    }
+            
+            # ICM
+            input_dict_currfy_icm = {'exp_bad_debts'         : 'NA',
+                                    'exp_prov_dtf_debts'    : 'NA',
+                                    'exp_dir_renum'         : '619423'
+                                    }
+            input_dict_prevfy_icm = {'exp_bad_debts'         : 'NA',
+                                    'exp_prov_dtf_debts'    : 'NA',
+                                    'exp_dir_renum'         : '0'
+                                    }
+            
+            if engagement == 'mg':
+                user_inputs_currfy["Answer"] = [input_dict_currfy_mg[var] for var in user_inputs_currfy.index]
+                user_inputs_prevfy["Answer"] = [input_dict_prevfy_mg[var] for var in user_inputs_prevfy.index]
+                tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Myer Gold Investment Management - 2022 TB.xlsx"
+                fy = 2022
+            elif engagement == 'ci':
+                user_inputs_currfy["Answer"] = [input_dict_currfy_ci[var] for var in user_inputs_currfy.index]
+                user_inputs_prevfy["Answer"] = [input_dict_prevfy_ci[var] for var in user_inputs_prevfy.index]
+                tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\Crossinvest TB reclassed.xlsx"
+                fy = 2022
+            elif engagement == 'icm':
+                user_inputs_currfy["Answer"] = [input_dict_currfy_icm[var] for var in user_inputs_currfy.index]
+                user_inputs_prevfy["Answer"] = [input_dict_prevfy_icm[var] for var in user_inputs_prevfy.index]
+                tb_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\TB with updated LS codes\icm TB reformatted.xlsx"
+                fy = 2023
+            else:
+                logger.warning("Engagement {engagement} is not recognised.")
+        
+            # # to use when reading from Alteryx
+            # alteryx_fp = {'user_inputs_currfy': ui_currfy_fp,
+            #               'user_inputs_prevfy': ui_prevfy_fp} # fp will be created when working on alteryx
+            # user_inputs_currfy = pd.read_excel(alteryx_fp['user_inputs_currfy'])
+            # user_inputs_prevfy = pd.read_excel(alteryx_fp['user_inputs_prevfy'])
         
         
-        # Get data by fy
-        # fy = 2022
-        tb2022 = tb_class.get_data_by_fy(fy)
+            fp_dict = {'aged_receivables_fp'      : r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\aged_receivables_template.xlsx",
+                    'tb_fp'                    : tb_fp,
+                    'sig_acct_output_fp'       : r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output.xlsx",
+                    'sig_acct_prevfy_output_fp': r"D:\Documents\Project\Internal Projects\20231206 Code review\acc_output_prevfy.xlsx",
+                    'output_fp'                : r"D:\Documents\Project\Internal Projects\20231206 Code review\form_3_output.xlsx"}
+            
+
+        # TB
+        if False:
+            #tb_fp = os.path.join(template_folderpath, "tb.xlsx")
+            #tb_fp = r"D:\Desktop\owgs\CODES\luna\personal_workspace\dacia\Myer Gold Investment Management - 2022 TB.xlsx"
+            
+            tb_fp = fp_dict['tb_fp']
+            logger.info(f"Your tb_filepath is at {tb_fp}.")
+            
+            # Load the tb
+            fy_end_date = datetime.date(2022, 12, 31)
+            tb_class = common.TBReader_ExcelFormat1(tb_fp, 
+                                                    sheet_name = 0,
+                                                    fy_end_date = fy_end_date)
+            
+            
+            # Get data by fy
+            # fy = 2022
+            tb2022 = tb_class.get_data_by_fy(fy)
+        if True:
+            # Load tb class from LunaHub
+            tb_class = common.TBLoader_From_LunaHub(client_number, fy)
+            
+
+        
+        # Form 3 mapping 
+        if True:
+            
+            mas_tb_mapping_fp = os.path.join(luna_folderpath, "parameters", "mas_forms_tb_mapping.xlsx")
+            logger.info(f"Your mas_tb_mapping_fp is at {mas_tb_mapping_fp}.")
+            
+            # Load the class
+            mapper_class = MASTemplateReader_Form3(mas_tb_mapping_fp, sheet_name = "Form 3 - TB mapping")
+        
+            # process df is here:
+            df_processed = mapper_class.df_processed  # need to build methods
+            
+
+
+        # CLASS
+        
+        sig_acc_output_fp = fp_dict['sig_acct_output_fp']
+        self = MASForm3_Generator(tb_class,
+                                mapper_class,
+                                sig_acc_output_fp,
+                                client_number,
+                                fy,
+                                user_inputs = user_inputs_currfy
+                                ) # is this an instance of a class?
+
+        # COMMENT THIS PORTION OUT FOR ICM--#
+        # Get previous balance
+        prevfy = fy-1
+        sig_acc_output_fp_prevfy = fp_dict['sig_acct_prevfy_output_fp']
+
+        temp = MASForm3_Generator(tb_class,
+                                mapper_class,
+                                sig_acc_output_fp,
+                                client_number,
+                                fy=prevfy,
+                                user_inputs = user_inputs_prevfy)
+        self.outputdf['Previous Balance'] = temp.outputdf["Balance"]
+
+        # Reorder columns by index 
+        column_order = [0,1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 10] 
+        self.outputdf = self.outputdf.iloc[:, column_order]  
+        # PORTION END--#
+
+        # Output to excel 
+        self.outputdf.to_excel(fp_dict['output_fp']) 
+
+
+
+        # MG
+            # NA
+            # NA
+            # 748216
+
+            # NA
+            # NA
+            # 792856
+
+        # CrossInvest
+            # 1590054
+            # CW9
+            # 677754
+            
+            # 1590054
+            # CW9 
+            # 819860
+
+        # ICM
+            # change fy to 2023
+            # NA
+            # NA
+            # 619423
+
+    # Import standard package
+    import os
+    import sys
+    import importlib.util
+
+    # Import help lib
+    import pyeasylib
+
+    # Set luna path - Load from settings.py
     if True:
-        # Load tb class from LunaHub
-        tb_class = common.TBLoader_From_LunaHub(client_number, fy)
+        loginid = os.getlogin().lower()
+        if loginid == "owghimsiong":
+            settings_py_path = r'D:\Desktop\owgs\CODES\luna\settings.py'
+        elif loginid == "phuasijia":
+            settings_py_path = r'D:\workspace\luna\settings.py'
+        else:
+            raise Exception (f"Invalid user={loginid}. Please specify the path of settings.py.")
         
+        # Import the luna environment through settings.
+        # DO NOT TOUCH
+        spec = importlib.util.spec_from_file_location("settings", settings_py_path)
+        settings = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(settings)
 
-    
-    # Form 3 mapping 
+    #############################################
+    ## FOR DEBUGGING ONLY ##
     if True:
-        
-        mas_tb_mapping_fp = os.path.join(luna_folderpath, "parameters", "mas_forms_tb_mapping.xlsx")
-        logger.info(f"Your mas_tb_mapping_fp is at {mas_tb_mapping_fp}.")
-        
-        # Load the class
-        mapper_class = MASTemplateReader_Form3(mas_tb_mapping_fp, sheet_name = "Form 3 - TB mapping")
+        client_number = 9289
+        fy = 2023
+    #############################################
     
-        # process df is here:
-        df_processed = mapper_class.df_processed  # need to build methods
-        
-
-
-    # CLASS
+    # Default output fp
+    sig_acc_output_fp = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
     
-    sig_acc_output_fp = fp_dict['sig_acct_output_fp']
-    self = MASForm3_Generator(tb_class,
-                              mapper_class,
-                              sig_acc_output_fp,
-                              client_number,
-                              fy,
-                              user_inputs = user_inputs_currfy
-                              ) # is this an instance of a class?
+    # Load mapping file
+    mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  
+    mapper_class = fsvi.mas.MASTemplateReader_Form3(mas_tb_mapping_fp, sheet_name = "Form 3 - TB mapping")
 
-    # COMMENT THIS PORTION OUT FOR ICM--#
-    # Get previous balance
-    prevfy = fy-1
-    sig_acc_output_fp_prevfy = fp_dict['sig_acct_prevfy_output_fp']
-
-    temp = MASForm3_Generator(tb_class,
-                              mapper_class,
-                              sig_acc_output_fp,
-                              client_number,
-                              fy=prevfy,
-                              user_inputs = user_inputs_prevfy)
-    self.outputdf['Previous Balance'] = temp.outputdf["Balance"]
-
-    # Reorder columns by index 
-    column_order = [0,1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 10] 
-    self.outputdf = self.outputdf.iloc[:, column_order]  
-    # PORTION END--#
-
-    # Output to excel 
-    self.outputdf.to_excel(fp_dict['output_fp']) 
-
-
-
-# MG
-    # NA
-    # NA
-    # 748216
-
-    # NA
-    # NA
-    # 792856
-
-# CrossInvest
-    # 1590054
-    # CW9
-    # 677754
+    ######################################################################
+    # CURRENT YEAR
+    ######################################################################
     
-    # 1590054
-    # CW9 
-    # 819860
+    # Load tb class from LunaHub
+    tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
-# ICM
-    # change fy to 2023
-    # NA
-    # NA
-    # 619423
+    # load user response
+    for attempt in range(12):
+        # time.sleep(5)
+        user_response_class = tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
+            client_number,
+            fy)
+        user_inputs = user_response_class.main()
+        if user_inputs is not None:
+            break
+        elif user_inputs is None and attempt == 11:
+            raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
+        else:
+            continue
+   
     
+    # Current fy    
+    self = fsvi.mas.MASForm3_Generator(
+        tb_class,
+        mapper_class,
+        sig_acc_output_fp,
+        client_number,
+        fy = fy,
+        user_inputs = user_inputs
+        )
+    
+    # #####################################################################
+    # # PREVIOUS YEAR
+    # #####################################################################
+    # prevfy = fy-1
+    
+    # # Load tb class from LunaHub
+    # tb_class_prevfy = common.TBLoader_From_LunaHub(client_number, prevfy)
+
+    # # load user response
+    # for attempt in range(12):
+    #         # time.sleep(5)
+    #         user_response_class_prevfy = tables.fs_masf3_userresponse.MASForm3UserResponse_DownloaderFromLunaHub(
+    #             client_number,
+    #             prevfy)
+    #         user_inputs_prevfy = user_response_class_prevfy.main()
+    #         if user_inputs is not None:
+    #             break
+    #         elif user_inputs is None and attempt == 11:
+    #             raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
+    #         else:
+    #             continue
+    
+    # # Current fy    
+    # prevfy_class = fsvi.mas.MASForm3_Generator(
+    #     tb_class_prevfy,
+    #     mapper_class,
+    #     None,
+    #     client_number,
+    #     fy = prevfy,
+    #     user_inputs = user_inputs_prevfy
+    #     )
+    
+    # # Append prev year data to current year
+    # current_fy_class.outputdf['Previous Balance'] = prevfy_class.outputdf["Balance"]
+
+    # # Specify temp file
+    # output_fn = f"mas_form3_{client_number}_{fy}_part1.xlsx"
+    # output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
+    # pyeasylib.create_folder_for_filepath(output_fp)    
+    # current_fy_class.write_output(output_fp)

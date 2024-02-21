@@ -52,8 +52,8 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
-        client_number = 7167
-        fy = 2022
+        client_number = 9289
+        fy = 2023
     #############################################
     
     # Default output fp
@@ -116,20 +116,27 @@ if __name__ == "__main__":
                 raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
             else:
                 continue
-    
-    # Current fy    
-    prevfy_class = fsvi.mas.MASForm3_Generator(
-        tb_class_prevfy,
-        mapper_class,
-        None,
-        client_number,
-        fy = prevfy,
-        user_inputs = user_inputs_prevfy
-        )
-    
-    # Append prev year data to current year
-    current_fy_class.outputdf['Previous Balance'] = prevfy_class.outputdf["Balance"]
 
+    try:  
+        # Previous fy    
+        prevfy_class = fsvi.mas.MASForm3_Generator(
+            tb_class_prevfy,
+            mapper_class,
+            None,
+            client_number,
+            fy = prevfy,
+            user_inputs = user_inputs_prevfy
+            )
+        
+        # Append prev year data to current year
+        current_fy_class.outputdf['Previous Balance'] = prevfy_class.outputdf["Balance"]
+
+    except:
+        # Append prev year data to current year
+        current_fy_class.outputdf['Previous Balance'] = None
+
+    
+    
     # Specify temp file
     output_fn = f"mas_form3_{client_number}_{fy}_part1.xlsx"
     output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)

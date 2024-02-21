@@ -571,12 +571,13 @@ class MASForm2_Generator_Part2:
         # Processing to get the annual gross income table
         # awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
         awp_fp = self.awp_fp
-        awp = pd.read_excel(awp_fp,sheet_name="2. FR+TRR")
+
+        awp = pd.read_excel(awp_fp,sheet_name="FR+TRR")
         start = awp[awp.iloc[:,0].str.
-                         contains("Definition", 
-                                  na=False)].index[0]
+                        contains("Definition", 
+                                na=False)].index[0]
         end = awp[awp.iloc[:,1].str.
-                       contains("Adjusted annual gross income", 
+                    contains("Adjusted annual gross income", 
                                 na = False)].index[0]
 
         awp = awp.iloc[start:end+1, 1:5]
@@ -917,7 +918,10 @@ class MASForm2_Generator_Part2:
 
         # This company is non-CLMS, so need to remove from the computation
         answer = self.user_inputs.at["non_clms", "Answer"]
-        non_clms = answer.split(",")
+        if answer is not None:
+            non_clms = answer.split(",")
+        else:
+            non_clms = [""]
 
         # Filter away/remove non_clms for each month 
         thirdmonth_amt = thirdmonth[~thirdmonth.index.isin(non_clms)]["0-90"].sum()     #1660896.34
@@ -1278,37 +1282,73 @@ class MASForm2_Generator_Part2:
         for i, row in enumerate(datahub_form3_current["var_name"]):
             if row in (required_varname_list):
                 value = datahub_form3_current.at[i, "Previous Balance"]
-                varname_dict[row] = value
+                if value is not None:
+                    varname_dict[row] = value
+                else:
+                    varname_dict[row] = None # by SJ: if does not exist, then take AWP value
 
-        # Total Revenue        
-        sheet["E78"] = varname_dict.get("rev_total_revenue", 0) # Default to 0 if key not present
         # added by SJ: prev_fys
+
+        # check that required fys exist
+        expected_fys = set([self.fy-i-1 for i in range(3)])
+        actual_fys = set([i for i in self.awp.columns if re.match("\d{4}", str(i))])
+        if expected_fys == actual_fys:
+            logger.info("Expected list of FYs are the same as the list of FYs provided.")
+        else:
+            missing_fys = expected_fys - actual_fys
+            logger.warning(f"The following FYs are not provided in the working paper: {missing_fys}. \
+                           Values for the listed FYs will be marked as 0 by default in the working paper output.")
+            
+            for fy in missing_fys:
+                self.awp[fy] = None
+
+        
         row_no = 1
-        sheet["D78"] = self.awp.fillna(0).iloc[row_no, -2]
-        sheet["C78"] = self.awp.fillna(0).iloc[row_no, -3]
+        # Total Revenue
+        if varname_dict.get("rev_total_revenue") == None: # SJ: updated to take awp if form 3 prev fy missing
+            sheet["E78"] = self.awp.fillna(0).loc[row_no, self.fy-1]
+        else:
+            sheet["E78"] = varname_dict.get("rev_total_revenue", 0) # Default to 0 if key not present
+        sheet["D78"] = self.awp.fillna(0).loc[row_no, self.fy-2]
+        sheet["C78"] = self.awp.fillna(0).loc[row_no, self.fy-3]
         row_no += 1
 
-        # Less Fees expense 
-        sheet["E79"] = -varname_dict.get("exp_fee_expense", 0)
+        # Less Fees expense
+        if varname_dict.get("exp_fee_expense") == None: # SJ: updated to take awp if form 3 prev fy missing
+            sheet["E79"] = self.awp.fillna(0).loc[row_no, self.fy-1]
+        else:
+            sheet["E79"] = -varname_dict.get("exp_fee_expense", 0) # Default to 0 if key not present
         # added by SJ: prev_fys
-        sheet["D79"] = self.awp.fillna(0).iloc[row_no, -2]
-        sheet["C79"] = self.awp.fillna(0).iloc[row_no, -3]
+        # sheet["D79"] = self.awp.fillna(0).iloc[row_no, -2]
+        # sheet["C79"] = self.awp.fillna(0).iloc[row_no, -3]
+        sheet["D79"] = self.awp.fillna(0).loc[row_no, self.fy-2]
+        sheet["C79"] = self.awp.fillna(0).loc[row_no, self.fy-3]
         row_no += 1
 
         # Less Commission expense 
-        agents = -varname_dict.get('exp_comm_expense_agents', 0)  
-        otherbroker = -varname_dict.get('exp_comm_expense_otherbroker', 0)  
-        sheet["E80"] = agents + otherbroker
+        if varname_dict.get("exp_comm_expense_agents") == None: # SJ: updated to take awp if form 3 prev fy missing
+            sheet["E80"] = self.awp.fillna(0).loc[row_no, self.fy-1]
+        else:
+            agents = -varname_dict.get('exp_comm_expense_agents', 0)
+            otherbroker = -varname_dict.get('exp_comm_expense_otherbroker', 0)
+            sheet["E80"] = agents + otherbroker
         # added by SJ: prev_fys
-        sheet["D80"] = self.awp.fillna(0).iloc[row_no, -2]
-        sheet["C80"] = self.awp.fillna(0).iloc[row_no, -3]
+        # sheet["D80"] = self.awp.fillna(0).iloc[row_no, -2]
+        # sheet["C80"] = self.awp.fillna(0).iloc[row_no, -3]
+        sheet["D80"] = self.awp.fillna(0).loc[row_no, self.fy-2]
+        sheet["C80"] = self.awp.fillna(0).loc[row_no, self.fy-3]
         row_no += 1
         
         # Less Interest expense 
-        sheet["E81"] = -varname_dict.get("exp_int_expense", 0)
+        if varname_dict.get("exp_int_expense") == None: # SJ: updated to take awp if form 3 prev fy missing
+            sheet["E81"] = self.awp.fillna(0).loc[row_no, self.fy-1]
+        else:
+            sheet["E81"] = -varname_dict.get("exp_int_expense", 0)
         # added by SJ: prev_fys
-        sheet["D81"] = self.awp.fillna(0).iloc[row_no, -2]
-        sheet["C81"] = self.awp.fillna(0).iloc[row_no, -3]
+        # sheet["D81"] = self.awp.fillna(0).iloc[row_no, -2]
+        # sheet["C81"] = self.awp.fillna(0).iloc[row_no, -3]
+        sheet["D81"] = self.awp.fillna(0).loc[row_no, self.fy-2]
+        sheet["C81"] = self.awp.fillna(0).loc[row_no, self.fy-3]
         row_no += 2
 
         # Less Income or expenses not derived from ordinary activities and not expected to recur frequently or regularly 
@@ -1325,12 +1365,17 @@ class MASForm2_Generator_Part2:
 
         income_exp_not_ord = 0
         for i in varname_list:
-            income_exp_not_ord += varname_dict.get(i,0) 
+            if varname_dict.get(i) == None:
+                income_exp_not_ord += self.awp.fillna(0).loc[row_no, self.fy-1]
+            else:
+                income_exp_not_ord += varname_dict.get(i,0) 
 
         sheet["E83"] = -income_exp_not_ord  
         # added by SJ: prev_fys
-        sheet["D83"] = self.awp.fillna(0).iloc[row_no, -2]
-        sheet["C83"] = self.awp.fillna(0).iloc[row_no, -3]
+        # sheet["D83"] = self.awp.fillna(0).iloc[row_no, -2]
+        # sheet["C83"] = self.awp.fillna(0).iloc[row_no, -3]
+        sheet["D83"] = self.awp.fillna(0).loc[row_no, self.fy-2]
+        sheet["C83"] = self.awp.fillna(0).loc[row_no, self.fy-3]
         # row_no += 1
 
 
@@ -1418,9 +1463,9 @@ if __name__ == "__main__":
 
     # TESTER
     if True:
-        client_number = 7167
-        fy = 2022
-        current_quarter_end_date = '2022-12-31'
+        client_number = 9289
+        fy = 2023
+        current_quarter_end_date = '2023-09-30'
        
     ### AGED RECEIVABLES ###
     # Load AR from file
@@ -1531,7 +1576,7 @@ if __name__ == "__main__":
         ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
 
         # awp fp
-        awp_fp = r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+        awp_fp = r"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\Input\AR Capital\form 2.xlsx" #r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
     
     self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,
