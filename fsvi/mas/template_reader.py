@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
     # Specify the param fp    
     dirname = os.path.dirname
-    luna_fp = dirname(dirname(dirname(__file__)))
+    luna_fp = dirname(dirname(dirname(dirname(__file__))))
     param_fp = os.path.join(luna_fp, 'parameters')
     fp = os.path.join(param_fp, "mas_forms_tb_mapping.xlsx")
     sheet_name = "Form 2 - TB mapping"
