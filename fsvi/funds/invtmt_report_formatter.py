@@ -427,12 +427,13 @@ class InvtmtOutputFormatter:
             templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
             self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
 
-            # # create formula for price per client
-            # col = r'Price per client'
-            # exception_2 = f'= IF({colname_to_excelcol["Last Trade price between Bid/Ask range?\n(between / not between)"]}{row} = "Between", "N", "Y")'
-            # templ_ws[f"{colname_to_excelcol[coSSl]}{row}"].value = exception_2
-            # templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            # self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            # create formula for price at bid
+            col = r'Price per client'
+            ref_excelcol = colname_to_excelcol['Exception\n(Y/N)']
+            price_per_client = f'= IF({ref_excelcol}{row} = "Y", {colname_to_excelcol["Last Trade Price per unit (Local Currency)"]}{row}, "")'
+            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = price_per_client
+            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
+            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
 
             # create formula for price at bid
             col = r'Price at Bid'
