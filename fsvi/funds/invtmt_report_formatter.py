@@ -477,8 +477,7 @@ if __name__ == "__main__":
     client_no = 50060
     fy        = 2023
 
-    # input_fp = r"D:\workspace\luna\personal_workspace\db\lunahub_initial_data.xlsx"
-    recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
+    # recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
     output_fp = r"D:\workspace\luna\personal_workspace\db\funds_test.xlsx"
     portfolio_mapper_fp = r"D:\workspace\luna\parameters\invtmt_portfolio_mapper.xlsx"
 
@@ -487,10 +486,9 @@ if __name__ == "__main__":
     portfolio_class = tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
     recon_class = tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_no, fy)
 
-    aic_name = "John Smith"
+    aic_name = "DS Team"
 
     for attempt in range(12):
-        # time.sleep(5)
         user_response_class = tables.fs_funds_userresponse.FundsUserResponse_DownloaderFromLunaHub(
             client_no,
             fy)
