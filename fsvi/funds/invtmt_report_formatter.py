@@ -17,13 +17,14 @@ import os
 
 class InvtmtOutputFormatter:
 
-    def __init__(self, input_fp, recon_input_fp, output_fp,
+    def __init__(self, sublead_class, portfolio_class, recon_class, output_fp,
                  mapper_fp, user_inputs,
                  client_class, fy, aic_name = ""
                  ):
 
-        self.input_fp       = input_fp
-        self.recon_input_fp = recon_input_fp
+        self.sublead_class  = sublead_class
+        self.portfolio_class= portfolio_class
+        self.recon_class    = recon_class
         self.output_fp      = output_fp
         self.mapper_fp      = mapper_fp
         self.user_inputs    = user_inputs
@@ -49,20 +50,9 @@ class InvtmtOutputFormatter:
 
 
     def read_files(self):
-
-        self.sublead_input_df = pd.read_excel(self.input_fp,
-                                              sheet_name = "fs_funds_output_sublead"
-                                              )
-        self.portfolio_input_df = pd.read_excel(self.input_fp,
-                                                sheet_name = "fs_funds_output_portfolio"
-                                                )
-        self.recon_input_df_summary = pd.read_excel(self.recon_input_fp,
-                                                    sheet_name = "Summary"
-                                                    )
-        self.recon_input_df_detail = pd.read_excel(self.recon_input_fp,
-                                                   sheet_name = "Detail"
-                                                   )
-        
+        self.sublead_input_df = self.sublead_class.main()
+        self.portfolio_input_df = self.portfolio_class.main()
+        self.recon_input_df_detail = self.recon_class.main()
         self.portfolio_mapper_df = pd.read_excel(self.mapper_fp)
             
     def build_varname_to_values(self, df):
@@ -104,9 +94,6 @@ class InvtmtOutputFormatter:
         if del_row_no != 0:
             ws.delete_rows(idx = 1, amount = del_row_no)
         ws.insert_rows(idx = 0, amount = 6 + add_row_no)
-
-        # for idx in range(4, 6):
-        #     ws.row_dimensions[idx].hidden = True #TODO: this should be temporary
 
         for merge in list(ws.merged_cells):
             ws.unmerge_cells(range_string=str(merge))
@@ -182,7 +169,7 @@ class InvtmtOutputFormatter:
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
         self.portfolio_mapper_dict = dict(zip(self.portfolio_mapper_df['Standardised'], self.portfolio_mapper_df['Formatted']))
-        self.processed_portfolio_input_df = self.portfolio_input_df.rename(columns = self.portfolio_mapper_dict)
+        self.processed_portfolio_input_df = self.portfolio_input_df.rename(columns = self.portfolio_mapper_dict).reset_index()
     
     def write_sublead_output(self):
 
@@ -262,6 +249,14 @@ class InvtmtOutputFormatter:
         templ_ws = templ_wb[summary_sheet_name]
 
         # summary content writing
+        self.recon_input_df_summary = self.recon_input_df_detail.groupby(by="EXCEPTIONINDICATOR").agg(
+            MATCHINGINDICATOR       = ('MATCHINGINDICATOR', lambda x: ','.join(x.unique())),
+            EXCEPTIONINDICATOR      = ('EXCEPTIONINDICATOR', lambda x: ','.join(x.unique())),
+            FUNDADMIN_MARKETVALUELCY= ('FUNDADMIN_MARKETVALUELCY', 'sum'),
+            BROKER_MARKETVALUELCY   = ("BROKER_MARKETVALUELCY", 'sum'),
+            DIFFERENCE              = ("DIFFERENCE", 'sum'),
+            ABSOLUTEDIFFERENCE      = ("ABSOLUTEDIFFERENCE", 'sum')
+            )
         for c_idx, header_value in enumerate(self.recon_input_df_summary.columns, 1):
             templ_ws.cell(row=1, column=c_idx, value=header_value)
             col = openpyxl.utils.cell.get_column_letter(c_idx)
@@ -270,12 +265,17 @@ class InvtmtOutputFormatter:
         for r_idx, row in enumerate(self.recon_input_df_summary.values, 2):
             for c_idx, value in enumerate(row, 1):
                 templ_ws.cell(row=r_idx, column=c_idx, value=value)
-            self._standardise_number_format(templ_ws, ['D', 'E', 'F', 'G'], r_idx) #TODO: hardcoded excelcols
+            self._standardise_number_format(templ_ws, ['C', 'D', 'E', 'F', 'G'], r_idx) #TODO: hardcoded excelcols
         
         self._create_header(templ_ws, summary_sheet_name, 0, 1)
 
         # detail
         templ_ws = templ_wb[detail_sheet_name]
+
+        self.recon_input_df_detail = self.recon_input_df_detail.drop(['CLIENTNUMBER', 'FY', 'UPLOADER',
+                                                                     'UPLOADDATETIME', 'COMMENT1', 'COMMENT2',
+                                                                     'COMMENT3'
+                                                                     ], axis = 1)
 
         # detail content writing
         for c_idx, header_value in enumerate(self.recon_input_df_detail.columns, 1):
@@ -477,12 +477,15 @@ if __name__ == "__main__":
     client_no = 50060
     fy        = 2023
 
-    input_fp = r"D:\workspace\luna\personal_workspace\db\lunahub_initial_data.xlsx"
+    # input_fp = r"D:\workspace\luna\personal_workspace\db\lunahub_initial_data.xlsx"
     recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
     output_fp = r"D:\workspace\luna\personal_workspace\db\funds_test.xlsx"
     portfolio_mapper_fp = r"D:\workspace\luna\parameters\invtmt_portfolio_mapper.xlsx"
 
     client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
+    sublead_class = tables.fs_funds_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
+    portfolio_class = tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
+    recon_class = tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_no, fy)
 
     aic_name = "John Smith"
 
@@ -499,8 +502,9 @@ if __name__ == "__main__":
         else:
             continue
 
-    self = InvtmtOutputFormatter(input_fp       = input_fp,
-                                 recon_input_fp = recon_input_fp,
+    self = InvtmtOutputFormatter(sublead_class  = sublead_class,
+                                 portfolio_class= portfolio_class,
+                                 recon_class    = recon_class,
                                  output_fp      = output_fp,
                                  mapper_fp      = portfolio_mapper_fp,
                                  user_inputs    = user_inputs,
