@@ -16,9 +16,12 @@ import luna.common as common
 from luna.lunahub import tables
 import os
 
+import pyeasylib.excellib as excellib
+
 class InvtmtOutputFormatter:
 
-    LSCODES_NAV = [pd.Interval(6900.0, 6900.4, closed='both')]
+    LSCODES_NAV         = [pd.Interval(6900.0, 6900.4, closed='both')]
+    LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
 
     def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
                  output_fp, mapper_fp, user_inputs,
@@ -187,6 +190,13 @@ class InvtmtOutputFormatter:
             adjusted_width = (max_length + 3)  # Add some padding
             ws.column_dimensions[column_letter].width = adjusted_width
 
+    def _copy_column_style(self, ws,
+                           src_excelcol, src_excelrow,
+                           dst_excelcol, dst_excelrow
+                           ):
+        for src, dst in zip(ws[f"{src_excelcol}{src_excelrow}"], ws[f"{dst_excelcol}{dst_excelrow}"]):
+            dst.fill = copy(src.fill)
+    
     def map_portfolio_columns(self):
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
@@ -201,6 +211,40 @@ class InvtmtOutputFormatter:
 
         return total_equity
 
+    def filter_tb_for_bond_int(self):
+
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_BOND_INT)
+
+        filtered_tb = true_match.copy()
+
+        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('interest', x) else 'Included')
+
+        return filtered_tb.copy()
+    
+    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, filtered_tb):
+
+        field_to_source_locations = {"<<<link>>>": "E39"}
+
+        reference_sheetname = "Filtered_TB"
+        header_rows = ["Trial Balance for Interest - Bonds", "Client name", "Data as of", "FY", 
+                       "Prepared by", "Reviewed by"]
+
+        field_to_data = {"<<<link>>>" : filtered_tb}
+
+        hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
+
+        hyperlink_class.write_reference_data()
+        
+        hyperlink_class.write_source_data()
+
+        ws = wb[reference_sheetname]
+
+        self._create_header(wb[reference_sheetname], "Trial Balance for Interest - Bonds", 6, 0)
+
+        for c_idx, header_value in enumerate(filtered_tb.reset_index().columns, 2):
+            col = openpyxl.utils.cell.get_column_letter(c_idx)
+            self._format_header_cell([col], 9, ws)
+        
     def write_sublead_output(self):
 
         sheet_name = "<5100-xx>Investment sub-lead"
@@ -264,7 +308,13 @@ class InvtmtOutputFormatter:
         self._create_header(templ_ws, sheet_name, 6, 0)
 
         templ_ws.column_dimensions[varname_excelcol].hidden = True
-        
+
+        filtered_tb = self.filter_tb_for_bond_int().drop(["L/S (interval)"], axis = 1)
+
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, filtered_tb)
+
+        templ_ws["E39"].fill = copy(templ_ws["D39"].fill)
+
         templ_wb.save(self.output_fp)
         templ_wb.close()
 
@@ -489,6 +539,9 @@ class InvtmtOutputFormatter:
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
+
+
+
 
 if __name__ == "__main__":
 
