@@ -12,19 +12,23 @@ import re
 
 import luna
 from luna.fsvi.funds.invtmt_report_template_reader import FundsInvtmtTemplateReader
+import luna.common as common
 from luna.lunahub import tables
 import os
 
 class InvtmtOutputFormatter:
 
-    def __init__(self, sublead_class, portfolio_class, recon_class, output_fp,
-                 mapper_fp, user_inputs,
+    LSCODES_NAV = [pd.Interval(6900.0, 6900.4, closed='both')]
+
+    def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
+                 output_fp, mapper_fp, user_inputs,
                  client_class, fy, aic_name = ""
                  ):
 
         self.sublead_class  = sublead_class
         self.portfolio_class= portfolio_class
         self.recon_class    = recon_class
+        self.tb_class       = tb_class
         self.output_fp      = output_fp
         self.mapper_fp      = mapper_fp
         self.user_inputs    = user_inputs
@@ -43,13 +47,13 @@ class InvtmtOutputFormatter:
 
     def main(self):
 
-        self.read_files()
+        self.get_data()
         self.write_sublead_output()
         self.write_recon_output()
         self.write_portfolio_output()
 
 
-    def read_files(self):
+    def get_data(self):
         self.sublead_input_df = self.sublead_class.main()
         self.portfolio_input_df = self.portfolio_class.main()
         self.recon_input_df_detail = self.recon_class.main()
@@ -165,12 +169,38 @@ class InvtmtOutputFormatter:
         ws[f"{excelcol}{row}"].font = font_style
         ws[f"{excelcol}{row}"].alignment = alignment_style
     
+    def _populate_portfolio_formula(self, ws, colname_to_excelcol, col, row, formula):
+        ws[f"{colname_to_excelcol[col]}{row}"].value = formula
+        ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
+        self._standardise_cell_format(ws, colname_to_excelcol[col], row)
+
+    def _adjust_col_width(self, ws):
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)  # Get column letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(cell.value)
+                except:
+                    pass
+            adjusted_width = (max_length + 3)  # Add some padding
+            ws.column_dimensions[column_letter].width = adjusted_width
+
     def map_portfolio_columns(self):
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
         self.portfolio_mapper_dict = dict(zip(self.portfolio_mapper_df['Standardised'], self.portfolio_mapper_df['Formatted']))
         self.processed_portfolio_input_df = self.portfolio_input_df.rename(columns = self.portfolio_mapper_dict).reset_index()
     
+    def process_nav(self):
+
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_NAV)
+
+        total_equity = true_match['Value'].sum()
+
+        return total_equity
+
     def write_sublead_output(self):
 
         sheet_name = "<5100-xx>Investment sub-lead"
@@ -319,12 +349,13 @@ class InvtmtOutputFormatter:
         
         input_length = len(self.processed_portfolio_input_df)
         if input_length > 25:
-            templ_ws.insert_rows(idx = 36, amount = input_length - 25)
+            templ_ws.insert_rows(idx = 40, amount = input_length - 25 + 2)
+
 
         transposed_df = self.processed_portfolio_input_df.T
 
         for col in transposed_df.index:
-            row = 13 + 4
+            row = 13 + 5
             for i in range(len(transposed_df.columns)):
                 try:
                     val = transposed_df.at[col, i]
@@ -342,7 +373,7 @@ class InvtmtOutputFormatter:
                                                 )
                 self._standardise_date_format(templ_ws, ['H'], row) # TODO: format not showing
 
-        row = 13 + 4
+        row = 13 + 5
 
         # # this will be KIV as a later enhancement
         # portfolio_formulas = self.template_class.portfolio_df_processed.iloc[0,:]
@@ -364,110 +395,97 @@ class InvtmtOutputFormatter:
             # create formula for market value at last trade price (base)
             col = 'Market Value at Last Trade Price (Base)'
             mv_at_ltp_fcy = f"= {colname_to_excelcol['Holdings']}{row} * {colname_to_excelcol['Last Trade Price per unit (Local Currency)']}{row} * {colname_to_excelcol['Exchange Rate @']}{row}"
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = mv_at_ltp_fcy
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, mv_at_ltp_fcy)
 
             # create formula for % of nav
             col = r'% of NAV'
             percent_of_nav = f"= {colname_to_excelcol['Market Value at Last Trade Price (Base)']}{row} / B9"
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = percent_of_nav
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, percent_of_nav)
 
             # create formula for market value per rsm (base)
             col = 'Market Value per RSM (Base)'
             mv_per_rsm_fcy = f"= {colname_to_excelcol['Holdings']}{row} * {colname_to_excelcol['Exchange Rate @']}{row} *  {colname_to_excelcol['Price Obtained from']}{row} "
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = mv_per_rsm_fcy
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, mv_per_rsm_fcy)
 
             # create formula for diff in value (base)
             col = 'Diff in Value (Base)'
             diff_in_val_fcy = f"= {colname_to_excelcol['Market Value per RSM (Base)']}{row} - {colname_to_excelcol['Market Value at Last Trade Price (Base)']}{row}"
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = diff_in_val_fcy
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, diff_in_val_fcy)
 
             # create formula for as a % of NAV
             col = r'As a % of NAV'
             percent_of_nav = f"= {colname_to_excelcol['Diff in Value (Base)']}{row} / B9"
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = percent_of_nav
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, percent_of_nav)
 
             # create formula for exception y/n
             col = r'Exception (Y/N)'
             exception_1 = f'= IF({colname_to_excelcol["Diff in Value (Base)"]}{row} = 0, "N", "Y")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = exception_1
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, exception_1)
 
             # create formula for lvl hierarchy
             col = 'Level hierarchy'
             lvl_hierarchy = f'= IF(ISBLANK({colname_to_excelcol["Price Obtained from"]}{row}), "", 1)'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = lvl_hierarchy
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, lvl_hierarchy)
 
             # create formula for ltp between range?
             col = 'Last Trade price between Bid/Ask range?\n(between / not between)'
             min_con_formula = f"{colname_to_excelcol['Last Trade Price per unit (Local Currency)']}{row}>=MIN({colname_to_excelcol['Bid Price Obtained from']}{row}, {colname_to_excelcol['Ask Price Obtained from']}{row})"
             max_con_formula = f"{colname_to_excelcol['Last Trade Price per unit (Local Currency)']}{row}<=MAX({colname_to_excelcol['Bid Price Obtained from']}{row}, {colname_to_excelcol['Ask Price Obtained from']}{row})"
             ltp_btw_bid_ask = f'= IF(AND({min_con_formula},{max_con_formula}), "Between", "Not between")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = ltp_btw_bid_ask
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, ltp_btw_bid_ask)
 
             # create formula for exception y/n 2
             col = 'Exception\n(Y/N)'
             excelcol = colname_to_excelcol["Last Trade price between Bid/Ask range?\n(between / not between)"]
             exception_2 = f'= IF({excelcol}{row} = "Between", "N", "Y")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = exception_2
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, exception_2)
 
             # create formula for price at bid
             col = r'Price per client'
             ref_excelcol = colname_to_excelcol['Exception\n(Y/N)']
             price_per_client = f'= IF({ref_excelcol}{row} = "Y", {colname_to_excelcol["Last Trade Price per unit (Local Currency)"]}{row}, "")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = price_per_client
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, price_per_client)
 
             # create formula for price at bid
             col = r'Price at Bid'
             ref_excelcol = colname_to_excelcol['Exception\n(Y/N)']
             price_at_bid = f'= IF({ref_excelcol}{row} = "Y", {colname_to_excelcol["Bid Price Obtained from"]}{row}, "")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = price_at_bid
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, price_at_bid)
             
             # create formula for price at ask
             col = r'Price at Ask'
             ref_excelcol = colname_to_excelcol['Exception\n(Y/N)']
             price_at_ask = f'= IF({ref_excelcol}{row} = "Y", {colname_to_excelcol["Ask Price Obtained from"]}{row}, "")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = price_at_ask
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
-            self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, price_at_ask)
 
             # create formula for price at ask
             col = r'Max difference'
             ref_excelcol = colname_to_excelcol['Exception\n(Y/N)']
             max_diff = f'= IF({ref_excelcol}{row} = "Y", ({colname_to_excelcol["Ask Price Obtained from"]}{row} - {colname_to_excelcol["Bid Price Obtained from"]}{row}) * {colname_to_excelcol["Exchange Rate @"]}{row} * {colname_to_excelcol["Holdings"]}{row}, "")'
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].value = max_diff
-            templ_ws[f"{colname_to_excelcol[col]}{row}"].alignment = Alignment(horizontal = 'left')
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, max_diff)
             self._standardise_cell_format(templ_ws, colname_to_excelcol[col], row)
-
-
 
             row += 1
 
         # TODO: all cols and rows hardcoded
-        templ_ws[f"B9"].value = float(self.user_inputs.at["nav", "Answer"])
+        templ_ws[f"B9"].value = self.process_nav()
         templ_ws[f"B10"].value = float(self.user_inputs.at["om", "Answer"])
         templ_ws[f"B11"].value = float(self.user_inputs.at["pm", "Answer"])
         templ_ws[f"B12"].value = re.sub(r'(?<=\=B)5(?=\*0\.05%)', '9', templ_ws[f"B12"].value)
+
+
+        # update total at bottom of sheet
+        if input_length > 25:
+            excelcol = colname_to_excelcol['Market Value at Last Trade Price (Base)']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+            templ_ws[f"{excelcol}{41+6+input_length-25}"].value = f"=SUM({excelcol}{38+6+input_length-25}:{excelcol}{40+6+input_length-25})"
+            templ_ws[f"{excelcol}{44+6+input_length-25}"].value = f"={excelcol}{41+6+input_length-25}-{excelcol}{43+6+input_length-25}"
+
+            excelcol = colname_to_excelcol['Diff in Value (Base)']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
+
+        self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -485,6 +503,7 @@ if __name__ == "__main__":
     sublead_class = tables.fs_funds_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
     portfolio_class = tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
     recon_class = tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_no, fy)
+    tb_class = common.TBLoader_From_LunaHub(client_no, fy)
 
     aic_name = "DS Team"
 
@@ -499,10 +518,11 @@ if __name__ == "__main__":
             raise Exception (f"Data not found for specified client {client_no} or FY {fy}.")
         else:
             continue
-
+    
     self = InvtmtOutputFormatter(sublead_class  = sublead_class,
                                  portfolio_class= portfolio_class,
                                  recon_class    = recon_class,
+                                 tb_class       = tb_class,
                                  output_fp      = output_fp,
                                  mapper_fp      = portfolio_mapper_fp,
                                  user_inputs    = user_inputs,
