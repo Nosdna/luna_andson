@@ -22,6 +22,7 @@ class InvtmtOutputFormatter:
 
     LSCODES_NAV         = [pd.Interval(6900.0, 6900.4, closed='both')]
     LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
+    LSCODES_BOND_INTREC = [pd.Interval(5200.0, 5300.0, closed='left')]
 
     def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
                  output_fp, mapper_fp, user_inputs,
@@ -217,16 +218,25 @@ class InvtmtOutputFormatter:
 
         filtered_tb = true_match.copy()
 
-        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('interest', x) else 'Included')
+        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
 
-        return filtered_tb.copy()
+        return filtered_tb.set_index('Account No').copy()
     
-    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, filtered_tb):
+    def filter_tb_for_bond_intrec(self):
 
-        field_to_source_locations = {"<<<link>>>": "E39"}
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_BOND_INTREC)
 
-        reference_sheetname = "Filtered_TB"
-        header_rows = ["Trial Balance for Interest - Bonds", "Client name", "Data as of", "FY", 
+        filtered_tb = true_match.copy()
+
+        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
+
+        return filtered_tb.set_index('Account No').copy()
+    
+    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, cell, reference_sheetname, title, filtered_tb):
+
+        field_to_source_locations = {"<<<link>>>": cell}
+
+        header_rows = ["Title", "Client name", "Data as of", "FY", 
                        "Prepared by", "Reviewed by"]
 
         field_to_data = {"<<<link>>>" : filtered_tb}
@@ -239,9 +249,9 @@ class InvtmtOutputFormatter:
 
         ws = wb[reference_sheetname]
 
-        self._create_header(wb[reference_sheetname], "Trial Balance for Interest - Bonds", 6, 0)
+        self._create_header(wb[reference_sheetname], title, 6, 0)
 
-        for c_idx, header_value in enumerate(filtered_tb.reset_index().columns, 2):
+        for c_idx, header_value in enumerate(filtered_tb.reset_index().columns, 1):
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 9, ws)
         
@@ -309,11 +319,20 @@ class InvtmtOutputFormatter:
 
         templ_ws.column_dimensions[varname_excelcol].hidden = True
 
-        filtered_tb = self.filter_tb_for_bond_int().drop(["L/S (interval)"], axis = 1)
+        filtered_tb_bond_int = self.filter_tb_for_bond_int().drop(["L/S (interval)"], axis = 1)
+        filtered_tb_bond_intrec = self.filter_tb_for_bond_intrec().drop(["L/S (interval)"], axis = 1)
 
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, filtered_tb)
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39",
+                                               "Interest - Bonds TB",
+                                               "Trial Balance for Interest - Bonds",
+                                               filtered_tb_bond_int)
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E41",
+                                               "Interest Receivables - Bonds TB", 
+                                               "Trial Balance for Interest Receivables - Bonds",
+                                               filtered_tb_bond_intrec)
 
         templ_ws["E39"].fill = copy(templ_ws["D39"].fill)
+        templ_ws["E41"].fill = copy(templ_ws["D41"].fill)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()

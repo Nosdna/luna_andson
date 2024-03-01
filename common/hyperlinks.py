@@ -96,17 +96,17 @@ class DataHyperlink:
         row += 1 # advance  1 empty row
         for fieldname, df in field_to_data.items():
             
-            # Write the field name
-            ws.cell(row, 1, fieldname)
+            # # Write the field name
+            # ws.cell(row, 1, fieldname)
         
-            # Save loc
-            field_to_target_cell[fieldname] = (row, 1)
+            # # Save loc
+            # field_to_target_cell[fieldname] = (row, 1)
             
             # write the data, starting from 1 row after field
             data_row = row + 1
             excellib.df_to_worksheet(df, ws, 
                                      index = True, header = True, 
-                                     startrow = data_row, startcol = 2)
+                                     startrow = data_row, startcol = 1)
             
             # Update row
             row += df.shape[0] + 3 # with two empty rows
@@ -133,12 +133,14 @@ class DataHyperlink:
             ws[loc] = fieldname
             
             # Get the target cell
-            target_row, target_col = field_to_target_cell[fieldname]
-            target_col_letter = openpyxl.utils.get_column_letter(target_col)
+            # target_row, target_col = field_to_target_cell[fieldname]
+            # target_col_letter = openpyxl.utils.get_column_letter(target_col)
+            target_col_letter = "A"
+            target_row = 9
             target_cell = f"{target_col_letter}{target_row}"
             
             # Set the hyperlink
-            hyperlink = f"#{reference_sheetname}!{target_cell}"            
+            hyperlink = f"#'{reference_sheetname}'!{target_cell}"            
             ws[loc].hyperlink = hyperlink
             ws[loc].style = 'Hyperlink'
 
