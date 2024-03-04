@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument("--aic_name", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = args.client_fy
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         client_number   = 50060
         fy              = 2023
         aic_name        = "DS Team"

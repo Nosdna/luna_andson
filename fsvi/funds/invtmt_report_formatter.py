@@ -6,6 +6,7 @@ from openpyxl.styles import Alignment
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.utils import get_column_letter, column_index_from_string
 import pandas as pd
+import numpy as np
 from copy import copy
 from datetime import datetime
 import re
@@ -23,6 +24,8 @@ class InvtmtOutputFormatter:
     LSCODES_NAV         = [pd.Interval(6900.0, 6900.4, closed='both')]
     LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
     LSCODES_BOND_INTREC = [pd.Interval(5200.0, 5300.0, closed='left')]
+
+    CONFIDENCE_THRESHOLD = 0.7
 
     def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
                  output_fp, mapper_fp, user_inputs,
@@ -169,7 +172,7 @@ class InvtmtOutputFormatter:
         
     def _standardise_cell_format(self, ws, excelcol, row):
         font_style = Font(size = "8", name = "Arial")
-        alignment_style =  Alignment(horizontal = 'right')
+        alignment_style =  Alignment(horizontal = 'center')
         ws[f"{excelcol}{row}"].font = font_style
         ws[f"{excelcol}{row}"].alignment = alignment_style
     
@@ -188,7 +191,7 @@ class InvtmtOutputFormatter:
                         max_length = len(cell.value)
                 except:
                     pass
-            adjusted_width = (max_length + 3)  # Add some padding
+            adjusted_width = (max_length)  # Add some padding
             ws.column_dimensions[column_letter].width = adjusted_width
 
     def _copy_column_style(self, ws,
@@ -202,8 +205,22 @@ class InvtmtOutputFormatter:
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
         self.portfolio_mapper_dict = dict(zip(self.portfolio_mapper_df['Standardised'], self.portfolio_mapper_df['Formatted']))
-        self.processed_portfolio_input_df = self.portfolio_input_df.rename(columns = self.portfolio_mapper_dict).reset_index()
+        self.processed_portfolio_input_df = self.portfolio_input_df.rename(columns = self.portfolio_mapper_dict).reset_index(drop = True)
     
+    def update_custodian_confidence_level_indicator(self):
+
+        col = "Notes for reconciliation"
+        df = self.processed_portfolio_input_df.copy()
+        threshold = InvtmtOutputFormatter.CONFIDENCE_THRESHOLD
+
+        # cond = [(df[col] >= threshold), (df[col] < threshold)]
+        # res = [f"Confidence of '{df[col]}': Fuzzy matched", f"Confidence of '{df[col]}': Need investigation"]
+
+        # self.processed_portfolio_input_df[col] = np.select(cond, res, default='')
+
+        self.processed_portfolio_input_df[col] = df[col].apply(lambda x: f"Confidence of '{x}': Fuzzy matched" if x >= threshold else f"Confidence of '{df[col]}': Need investigation")
+
+
     def process_nav(self):
 
         is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_NAV)
@@ -405,6 +422,7 @@ class InvtmtOutputFormatter:
         colname_to_excelcol = self.template_class.portfolio_colname_to_excelcol
 
         self.map_portfolio_columns()
+        self.update_custodian_confidence_level_indicator()
 
         self._create_header(templ_ws, sheet_name, 2, 0)
 
@@ -461,6 +479,12 @@ class InvtmtOutputFormatter:
 
 
         for i in range(len(transposed_df.columns)):
+
+            # create formula for diff in holdings
+            col = 'Diff in holdings?'
+            diff_in_holdings = f"= {colname_to_excelcol['Holdings per confirmation @']}{row} - {colname_to_excelcol['Holdings']}{row}"
+            self._populate_portfolio_formula(templ_ws, colname_to_excelcol, col, row, diff_in_holdings)
+
             # create formula for market value at last trade price (base)
             col = 'Market Value at Last Trade Price (Base)'
             mv_at_ltp_fcy = f"= {colname_to_excelcol['Holdings']}{row} * {colname_to_excelcol['Last Trade Price per unit (Local Currency)']}{row} * {colname_to_excelcol['Exchange Rate @']}{row}"
@@ -542,11 +566,11 @@ class InvtmtOutputFormatter:
         templ_ws[f"B11"].value = float(self.user_inputs.at["pm", "Answer"])
         templ_ws[f"B12"].value = re.sub(r'(?<=\=B)5(?=\*0\.05%)', '9', templ_ws[f"B12"].value)
 
-
         # update total at bottom of sheet
         if input_length > 25:
             excelcol = colname_to_excelcol['Market Value at Last Trade Price (Base)']
             templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+            templ_ws[f"{excelcol}{40+6+input_length-25}"].value = float(self.user_inputs.at["manual_adjustment", "Answer"])
             templ_ws[f"{excelcol}{41+6+input_length-25}"].value = f"=SUM({excelcol}{38+6+input_length-25}:{excelcol}{40+6+input_length-25})"
             templ_ws[f"{excelcol}{44+6+input_length-25}"].value = f"={excelcol}{41+6+input_length-25}-{excelcol}{43+6+input_length-25}"
 
