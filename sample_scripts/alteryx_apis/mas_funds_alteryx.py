@@ -70,8 +70,7 @@ if __name__ == "__main__":
     sublead_class = lunahub.tables.fs_funds_output_sublead.FundsSublead_DownloaderFromLunaHub(client_number, fy)
     portfolio_class = lunahub.tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_number, fy)
     recon_class = lunahub.tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_number, fy)
-
-    aic_name = "DS Team"
+    tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
     for attempt in range(12):
         user_response_class = lunahub.tables.fs_funds_userresponse.FundsUserResponse_DownloaderFromLunaHub(
@@ -93,6 +92,7 @@ if __name__ == "__main__":
     self = InvtmtOutputFormatter(sublead_class  = sublead_class,
                                  portfolio_class= portfolio_class,
                                  recon_class    = recon_class,
+                                 tb_class       = tb_class,
                                  output_fp      = output_fp,
                                  mapper_fp      = portfolio_mapper_fp,
                                  user_inputs    = user_inputs,

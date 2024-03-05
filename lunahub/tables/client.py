@@ -292,7 +292,7 @@ if __name__ == "__main__":
     # Test query
     if True:
         fy = 2022
-        client_number = 7167
+        client_number = 71679
         lunahub_obj = None
         
         self = ClientInfoLoader_From_LunaHub(client_number, lunahub_obj)

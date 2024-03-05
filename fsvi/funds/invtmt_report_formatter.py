@@ -40,7 +40,7 @@ class InvtmtOutputFormatter:
         self.mapper_fp      = mapper_fp
         self.user_inputs    = user_inputs
         self.client_class   = client_class
-        self.fy             = fy
+        self.fy             = int(fy)
         self.aic_name       = aic_name
 
         self.template_fp = os.path.join(luna.settings.LUNA_FOLDERPATH,
@@ -366,12 +366,11 @@ class InvtmtOutputFormatter:
 
         # summary content writing
         self.recon_input_df_summary = self.recon_input_df_detail.groupby(by="EXCEPTIONINDICATOR").agg(
-            MATCHINGINDICATOR       = ('MATCHINGINDICATOR', lambda x: ','.join(x.unique())),
+            # MATCHINGINDICATOR       = ('MATCHINGINDICATOR', lambda x: ','.join(x.unique())),
             EXCEPTIONINDICATOR      = ('EXCEPTIONINDICATOR', lambda x: ','.join(x.unique())),
-            FUNDADMIN_MARKETVALUELCY= ('FUNDADMIN_MARKETVALUELCY', 'sum'),
-            BROKER_MARKETVALUELCY   = ("BROKER_MARKETVALUELCY", 'sum'),
-            DIFFERENCE              = ("DIFFERENCE", 'sum'),
-            ABSOLUTEDIFFERENCE      = ("ABSOLUTEDIFFERENCE", 'sum')
+            MARKETVALUEFUNDADMIN    = ("MARKETVALUEFUNDADMIN", 'sum'),
+            MARKETVALUEBROKER       = ('MARKETVALUEBROKER', 'sum'),
+            VALUEDIFFERENCE         = ("VALUEDIFFERENCE", 'sum')
             )
         for c_idx, header_value in enumerate(self.recon_input_df_summary.columns, 1):
             templ_ws.cell(row=1, column=c_idx, value=header_value)
@@ -381,7 +380,7 @@ class InvtmtOutputFormatter:
         for r_idx, row in enumerate(self.recon_input_df_summary.values, 2):
             for c_idx, value in enumerate(row, 1):
                 templ_ws.cell(row=r_idx, column=c_idx, value=value)
-            self._standardise_number_format(templ_ws, ['C', 'D', 'E', 'F', 'G'], r_idx) #TODO: hardcoded excelcols
+            self._standardise_number_format(templ_ws, ['B', 'C', 'D', 'E', 'F', 'G'], r_idx) #TODO: hardcoded excelcols
         
         self._create_header(templ_ws, summary_sheet_name, 0, 1)
 
