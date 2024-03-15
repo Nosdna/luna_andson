@@ -94,9 +94,18 @@ class MASTemplateReader_Form1:
         # Get attr
         df_processed = self.df_processed.copy()
     
+        # # Create ls - combine both amt and subtotal
+        # df_processed["L/S"] = df_processed["Subtotal"].fillna(df_processed["Amount"])
+
+        # ### ADDED BY SJ - some varname LS amount not added because there is a value in the subtotal (ie formulas) ###
+        # df_processed["L/S"] = df_processed["L/S"].astype(str)
+        # df_processed["L/S"] = np.where(df_processed['L/S'].str.match("\=.*", case = False), df_processed['Amount'], df_processed['L/S'])
+        # df_processed["L/S"] = df_processed["L/S"].fillna(df_processed["Subtotal"])
+
         # Create ls - combine both amt and subtotal
-        df_processed["L/S"] = df_processed["Subtotal"].fillna(df_processed["Amount"])
-    
+        df_processed["L/S"] = df_processed["Amount"].fillna(df_processed["Subtotal"])
+
+
         # split
         df_processed["L/S (intervals)"] = df_processed["L/S"].apply(lambda x: str(x).replace(" ", "").split(","))
     
@@ -382,10 +391,10 @@ if __name__ == "__main__":
 
     # Specify the param fp    
     dirname = os.path.dirname
-    luna_fp = dirname(dirname(dirname(dirname(__file__))))
+    luna_fp = dirname(dirname(dirname(__file__)))
     param_fp = os.path.join(luna_fp, 'parameters')
     fp = os.path.join(param_fp, "mas_forms_tb_mapping.xlsx")
-    sheet_name = "Form 2 - TB mapping"
+    sheet_name = "Form 1 - TB mapping"
     
     
     # Main

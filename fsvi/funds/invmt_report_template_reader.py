@@ -11,7 +11,7 @@ import luna
 import pyeasylib
 from luna.common import misc
 
-class FundsInvtmtTemplateReader:
+class FundsInvmtTemplateReader:
 
     REQUIRED_HEADERS_SUBLEAD    = ["Current FY", "Previous FY"]
     REQUIRED_HEADERS_PORTFOLIO  = ["Security Name", "ISIN/SEDOL CODE", "Type", "Industry Sector", "Country"
@@ -146,4 +146,4 @@ if __name__ == "__main__":
     
 
 
-    self = FundsInvtmtTemplateReader(fp)
+    self = FundsInvmtTemplateReader(fp)

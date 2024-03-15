@@ -12,20 +12,20 @@ from datetime import datetime
 import re
 
 import luna
-from luna.fsvi.funds.invtmt_report_template_reader import FundsInvtmtTemplateReader
+from luna.fsvi.funds.invmt_report_template_reader import FundsInvmtTemplateReader
 import luna.common as common
 from luna.lunahub import tables
 import os
 
 import pyeasylib.excellib as excellib
 
-class InvtmtOutputFormatter:
+class InvmtOutputFormatter:
 
     LSCODES_NAV         = [pd.Interval(6900.0, 6900.4, closed='both')]
     LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
     LSCODES_BOND_INTREC = [pd.Interval(5200.0, 5300.0, closed='left')]
 
-    CONFIDENCE_THRESHOLD = 0.7
+    CONFIDENCE_THRESHOLD = 0.45
 
     def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
                  output_fp, mapper_fp, user_inputs,
@@ -48,7 +48,7 @@ class InvtmtOutputFormatter:
                                         "investment_template.xlsx"
                                         )
         
-        self.template_class = FundsInvtmtTemplateReader(self.template_fp)
+        self.template_class = FundsInvmtTemplateReader(self.template_fp)
 
         self.main()
 
@@ -211,19 +211,36 @@ class InvtmtOutputFormatter:
 
         col = "Notes for reconciliation"
         df = self.processed_portfolio_input_df.copy()
-        threshold = InvtmtOutputFormatter.CONFIDENCE_THRESHOLD
+        threshold = InvmtOutputFormatter.CONFIDENCE_THRESHOLD
 
         # cond = [(df[col] >= threshold), (df[col] < threshold)]
         # res = [f"Confidence of '{df[col]}': Fuzzy matched", f"Confidence of '{df[col]}': Need investigation"]
 
         # self.processed_portfolio_input_df[col] = np.select(cond, res, default='')
 
-        self.processed_portfolio_input_df[col] = df[col].apply(lambda x: f"Confidence of '{x}': Fuzzy matched" if x >= threshold else f"Confidence of '{df[col]}': Need investigation")
+        self.processed_portfolio_input_df[col] = df[col].apply(lambda x: f"Confidence of '{x:.2f}': Matched" if x >= threshold else f"Confidence of '{x:.2f}': Possible name mismatch")
+
+    def sort_portfolio_input_df(self):
+        df = self.processed_portfolio_input_df.copy()
+        col = 'diff_in_holdings'
+        df[col] = df['Holdings per confirmation @'].astype(float) - df['Holdings'].astype(float)
+
+        cond = [(df[col] < 0.01) & (df[col] > -0.01),
+                ((df[col] > 0.01) | (df[col] > 0.01)) & (df["Ref in (Custodian's Confirmation)"].isnull()) & (df["Security Name"].notnull())]
+        res = [1, 2]
+
+        df['rank'] = np.select(cond, res, default=3)
+
+        self.processed_portfolio_input_df = df.sort_values(by = ['rank', 'Notes for reconciliation'],
+                                                           ascending=[True, False],
+                                                           axis = 0,
+                                                           ignore_index = True
+                                                           )
 
 
     def process_nav(self):
 
-        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_NAV)
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_NAV)
 
         total_equity = true_match['Value'].sum()
 
@@ -231,21 +248,31 @@ class InvtmtOutputFormatter:
 
     def filter_tb_for_bond_int(self):
 
-        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_BOND_INT)
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_BOND_INT)
 
         filtered_tb = true_match.copy()
 
         filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
+
+        filtered_tb = filtered_tb.sort_values(by = 'Include / Exclude', ascending = False, ignore_index = True)
+
+        # drop cols
+        filtered_tb = filtered_tb.drop(["L/S (interval)", "Completed FY?"], axis = 1)
 
         return filtered_tb.set_index('Account No').copy()
     
     def filter_tb_for_bond_intrec(self):
 
-        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvtmtOutputFormatter.LSCODES_BOND_INTREC)
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_BOND_INTREC)
 
         filtered_tb = true_match.copy()
 
         filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
+
+        filtered_tb = filtered_tb.sort_values(by = 'Include / Exclude', ascending = False, ignore_index = True)
+
+        # drop cols
+        filtered_tb = filtered_tb.drop(["L/S (interval)", "Completed FY?"], axis = 1)
 
         return filtered_tb.set_index('Account No').copy()
     
@@ -259,9 +286,7 @@ class InvtmtOutputFormatter:
         field_to_data = {"<<<link>>>" : filtered_tb}
 
         hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
-
         hyperlink_class.write_reference_data()
-        
         hyperlink_class.write_source_data()
 
         ws = wb[reference_sheetname]
@@ -271,7 +296,17 @@ class InvtmtOutputFormatter:
         for c_idx, header_value in enumerate(filtered_tb.reset_index().columns, 1):
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 9, ws)
-        
+
+        for r_idx, row in enumerate(filtered_tb.reset_index().values, 10):
+            self._standardise_number_format(ws, ['F'], r_idx) #TODO: hardcoded excelcols and rows  
+            self._standardise_date_format(ws, ['E'], r_idx) #TODO: hardcoded excelcols and rows  
+
+        field_to_source_locations = {"<<<Return to Sub-lead>>>": "A8"}
+
+        hyperlink_class = common.hyperlinks.DataHyperlink(reference_sheetname, field_to_source_locations, source_sheetname, [], {}, wb)
+        hyperlink_class.write_reference_data()
+        hyperlink_class.write_source_data()
+
     def write_sublead_output(self):
 
         sheet_name = "<5100-xx>Investment sub-lead"
@@ -295,6 +330,8 @@ class InvtmtOutputFormatter:
                 
         # get the data
         varname_to_values = self.build_varname_to_values(self.sublead_input_df)
+        varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUEPREVFY'] = varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUE']
+        varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUE'] = varname_to_values.at['cost_roll_sales_txn_report_cost', 'VALUE']
         self.varname_to_values = varname_to_values.copy()
 
         # save column index
@@ -319,9 +356,9 @@ class InvtmtOutputFormatter:
             self._standardise_cell_format(templ_ws, pfy_excelcol, row)
 
         fy_excelrow = min(varname_to_index) - 3
-        fcy_lst = self.sublead_input_df["FUNCTIONALCURRENCY"].to_list()
+        fcy_lst = self.sublead_input_df["FUNCTIONALCURR"].to_list()
         if len(set(fcy_lst)) > 1:
-            raise Exception("More than one unique value found in FUNCTIONALCURRENCY column:"
+            raise Exception("More than one unique value found in FUNCTIONALCURR column:"
                             f"{fcy_lst}.")
         else:
             fcy = fcy_lst[0]
@@ -336,8 +373,8 @@ class InvtmtOutputFormatter:
 
         templ_ws.column_dimensions[varname_excelcol].hidden = True
 
-        filtered_tb_bond_int = self.filter_tb_for_bond_int().drop(["L/S (interval)"], axis = 1)
-        filtered_tb_bond_intrec = self.filter_tb_for_bond_intrec().drop(["L/S (interval)"], axis = 1)
+        filtered_tb_bond_int = self.filter_tb_for_bond_int()
+        filtered_tb_bond_intrec = self.filter_tb_for_bond_intrec()
 
         self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39",
                                                "Interest - Bonds TB",
@@ -387,6 +424,12 @@ class InvtmtOutputFormatter:
         # detail
         templ_ws = templ_wb[detail_sheet_name]
 
+        self.recon_input_df_detail = self.recon_input_df_detail.sort_values(by = ['VALUEDIFFERENCE', 'MATCHINGINDICATORNAME', 'CONFIDENCELEVELNAME'],
+                                                           ascending=[False, True, False],
+                                                           axis = 0,
+                                                           ignore_index = True
+                                                           )
+
         self.recon_input_df_detail = self.recon_input_df_detail.drop(['CLIENTNUMBER', 'FY', 'UPLOADER',
                                                                      'UPLOADDATETIME', 'COMMENT1', 'COMMENT2',
                                                                      'COMMENT3'
@@ -427,16 +470,17 @@ class InvtmtOutputFormatter:
 
         row = 14
         templ_ws.merge_cells(f"A{row}:H{row}") # per client
-        templ_ws.merge_cells(f"I{row}:L{row}") # per custodian
-        templ_ws.merge_cells(f"M{row}:R{row}") # per client
-        templ_ws.merge_cells(f"S{row}:Y{row}") # per rsm
-        templ_ws.merge_cells(f"AA{row}:AD{row}") # per rsm
-        templ_ws.merge_cells(f"AF{row}:AI{row}") # if ltp is not within bis ask spread
+        templ_ws.merge_cells(f"I{row}:M{row}") # per custodian
+        templ_ws.merge_cells(f"N{row}:S{row}") # per client
+        templ_ws.merge_cells(f"T{row}:Z{row}") # per rsm
+        templ_ws.merge_cells(f"AB{row}:AE{row}") # per rsm
+        templ_ws.merge_cells(f"AG{row}:AJ{row}") # if ltp is not within bis ask spread
         
         input_length = len(self.processed_portfolio_input_df)
         if input_length > 25:
             templ_ws.insert_rows(idx = 40, amount = input_length - 25 + 2)
 
+        self.sort_portfolio_input_df()
 
         transposed_df = self.processed_portfolio_input_df.T
 
@@ -592,12 +636,12 @@ if __name__ == "__main__":
 
     # recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
     output_fp = r"D:\workspace\luna\personal_workspace\db\funds_test.xlsx"
-    portfolio_mapper_fp = r"D:\workspace\luna\parameters\invtmt_portfolio_mapper.xlsx"
+    portfolio_mapper_fp = r"D:\workspace\luna\parameters\invmt_portfolio_mapper.xlsx"
 
     client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
-    sublead_class = tables.fs_funds_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
-    portfolio_class = tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
-    recon_class = tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_no, fy)
+    sublead_class = tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
+    portfolio_class = tables.fs_funds_invmt_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
+    recon_class = tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_no, fy)
     tb_class = common.TBLoader_From_LunaHub(client_no, fy)
 
     aic_name = "DS Team"
@@ -614,7 +658,7 @@ if __name__ == "__main__":
         else:
             continue
     
-    self = InvtmtOutputFormatter(sublead_class  = sublead_class,
+    self = InvmtOutputFormatter(sublead_class  = sublead_class,
                                  portfolio_class= portfolio_class,
                                  recon_class    = recon_class,
                                  tb_class       = tb_class,

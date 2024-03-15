@@ -16,9 +16,9 @@ logger.setLevel(logging.DEBUG)
 # class to upload client data
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
-class FundsReconDetail_DownloaderFromLunaHub:
+class FundsInvmtTxnReconDetail_DownloaderFromLunaHub:
     
-    TABLENAME = "fs_funds_recon_detail"
+    TABLENAME = "fs_funds_invmt_txn_recon_detail"
     
     def __init__(self, 
                  client_number, fy,

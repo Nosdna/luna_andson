@@ -18,7 +18,7 @@ LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
 class FundsSublead_DownloaderFromLunaHub:
     
-    TABLENAME = "fs_funds_output_sublead"
+    TABLENAME = "fs_funds_invmt_output_sublead"
     
     def __init__(self, 
                  client_number, fy,

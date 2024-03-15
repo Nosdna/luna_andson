@@ -30,7 +30,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
-from luna.fsvi.funds.invtmt_report_formatter import InvtmtOutputFormatter
+from fsvi.funds.invmt_report_formatter import InvtmtOutputFormatter
 
 # Import help lib
 import pyeasylib
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument("--aic_name", required=True)
     
     # Parse the information
-    if True:
+    if False:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = args.client_fy
@@ -54,8 +54,8 @@ if __name__ == "__main__":
         
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if False:
-        client_number   = 50060
+    if True:
+        client_number   = 50067
         fy              = 2023
         aic_name        = "DS Team"
     #############################################

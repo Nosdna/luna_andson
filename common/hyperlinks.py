@@ -81,7 +81,10 @@ class DataHyperlink:
         
         # Get wb and ws
         wb = self._get_wb()
-        ws = wb.create_sheet(reference_sheetname)
+        if reference_sheetname in wb.sheetnames:
+            ws = wb[reference_sheetname]
+        else:
+            ws = wb.create_sheet(reference_sheetname)
         
         # Write header
         row = 1

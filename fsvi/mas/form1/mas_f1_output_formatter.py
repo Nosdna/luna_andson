@@ -190,8 +190,7 @@ class OutputFormatter:
     def _replace_ls_total_value(self, ws, excelcol, row):
         cell = ws[f"{excelcol}{row}"]
         cell_value_str = str(cell.value)
-
-        if re.match("=.*", cell_value_str):
+        if re.search("=.*", cell_value_str):
             cell.value = "<<<Total>>>"
 
     def _create_var_formula(self, ws, excelcol, excelrow, val):
@@ -418,8 +417,14 @@ class OutputFormatter:
 
                 templ_ws[f'{subtotal_excelcol}{row}'].value = new_formula
 
-            # Replace values declared with L/S with <<<>>> indicator instead
-            self._replace_ls_total_value(templ_ws, target_ls_subtotal_excelcol, row)
+        # Replace values declared with L/S with <<<>>> indicator instead
+        # TODO: not optimal
+        target_ls_subtotal_excelcol_index = openpyxl.utils.column_index_from_string(target_ls_subtotal_excelcol)
+        for row in templ_ws.iter_rows(min_row=1, min_col = target_ls_subtotal_excelcol_index, max_col = target_ls_subtotal_excelcol_index):
+            for cell in row:
+                cell_value_str = str(cell.value)
+                if re.search("=.*", cell_value_str):
+                    cell.value = "<<<Total>>>"
 
 
         
@@ -450,12 +455,12 @@ class OutputFormatter:
 if __name__ == "__main__":
 
     if True: # Testing
-        client_no   = 7167
-        fy          = 2022
+        client_no   = 9289
+        fy          = 2023
 
-        input_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_7167_2022.xlsx"
-        ocr_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_7167_2022_ocr.xlsx"
-        output_fp = r"D:\workspace\luna\personal_workspace\tmp\mas_form1_formatted_7167_2022.xlsx"
+        input_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form1_{client_no}_{fy}.xlsx"
+        ocr_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form1_{client_no}_{fy}_ocr.xlsx"
+        output_fp = rf"D:\workspace\luna\personal_workspace\tmp\mas_form1_formatted_{client_no}_{fy}.xlsx"
         
         client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
 

@@ -1,2 +1,2 @@
-from .invtmt_report_formatter import InvtmtOutputFormatter
-from .invtmt_report_template_reader import FundsInvtmtTemplateReader
+from .invmt_report_formatter import InvmtOutputFormatter
+from .invmt_report_template_reader import FundsInvmtTemplateReader

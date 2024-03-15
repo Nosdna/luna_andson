@@ -18,7 +18,7 @@ LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
 class FundsPortfolio_DownloaderFromLunaHub:
     
-    TABLENAME = "fs_funds_output_portfolio"
+    TABLENAME = "fs_funds_invmt_output_portfolio"
     
     def __init__(self, 
                  client_number, fy,
