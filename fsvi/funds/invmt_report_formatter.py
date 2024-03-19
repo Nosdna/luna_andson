@@ -393,8 +393,8 @@ class InvmtOutputFormatter:
 
     def write_recon_output(self):
 
-        summary_sheet_name = "Investment recon summary"
-        detail_sheet_name = "Investment recon detail"
+        summary_sheet_name = "Investment txn recon summary"
+        detail_sheet_name = "Investment txn recon detail"
 
         templ_wb = openpyxl.load_workbook(self.output_fp)
 
@@ -425,7 +425,7 @@ class InvmtOutputFormatter:
         templ_ws = templ_wb[detail_sheet_name]
 
         self.recon_input_df_detail = self.recon_input_df_detail.sort_values(by = ['VALUEDIFFERENCE', 'MATCHINGINDICATORNAME', 'CONFIDENCELEVELNAME'],
-                                                           ascending=[False, True, False],
+                                                           ascending=[True, True, False],
                                                            axis = 0,
                                                            ignore_index = True
                                                            )

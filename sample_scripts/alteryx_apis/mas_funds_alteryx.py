@@ -30,7 +30,7 @@ import luna
 import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
-from fsvi.funds.invmt_report_formatter import InvtmtOutputFormatter
+from luna.fsvi.funds.invmt_report_formatter import InvmtOutputFormatter
 
 # Import help lib
 import pyeasylib
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if True:
-        client_number   = 50067
+        client_number   = 50077
         fy              = 2023
         aic_name        = "DS Team"
     #############################################
@@ -64,12 +64,12 @@ if __name__ == "__main__":
     luna_init_file = luna.__file__
     luna_folderpath = os.path.dirname(luna_init_file)
 
-    portfolio_mapper_fp = r"D:\workspace\luna\parameters\invtmt_portfolio_mapper.xlsx"
+    portfolio_mapper_fp = r"D:\workspace\luna\parameters\invmt_portfolio_mapper.xlsx"
 
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
-    sublead_class = lunahub.tables.fs_funds_output_sublead.FundsSublead_DownloaderFromLunaHub(client_number, fy)
-    portfolio_class = lunahub.tables.fs_funds_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_number, fy)
-    recon_class = lunahub.tables.fs_funds_recon_details.FundsReconDetail_DownloaderFromLunaHub(client_number, fy)
+    sublead_class = lunahub.tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_number, fy)
+    portfolio_class = lunahub.tables.fs_funds_invmt_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_number, fy)
+    recon_class = lunahub.tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_number, fy)
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
     for attempt in range(12):
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     #output_fp = pyeasylib.check_filepath(output_fp)
     pyeasylib.create_folder_for_filepath(output_fp)    
 
-    self = InvtmtOutputFormatter(sublead_class  = sublead_class,
+    self = InvmtOutputFormatter(sublead_class  = sublead_class,
                                  portfolio_class= portfolio_class,
                                  recon_class    = recon_class,
                                  tb_class       = tb_class,
