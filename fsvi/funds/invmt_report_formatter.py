@@ -25,9 +25,15 @@ class InvmtOutputFormatter:
     LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
     LSCODES_BOND_INTREC = [pd.Interval(5200.0, 5300.0, closed='left')]
 
+    DATABASE_MISC_COLS  = ['WORKFLOWDATE', 'CLIENTNUMBER','FY',
+                           'UPLOADER', 'UPLOADDATETIME',
+                           'COMMENT1', 'COMMENT2', 'COMMENT3'
+                           ]
+
     CONFIDENCE_THRESHOLD = 0.45
 
-    def __init__(self, sublead_class, portfolio_class, recon_class, tb_class,
+    def __init__(self, sublead_class, portfolio_class, recon_class,
+                 broker_class, custodian_class, tb_class,
                  output_fp, mapper_fp, user_inputs,
                  client_class, fy, aic_name = ""
                  ):
@@ -35,6 +41,8 @@ class InvmtOutputFormatter:
         self.sublead_class  = sublead_class
         self.portfolio_class= portfolio_class
         self.recon_class    = recon_class
+        self.broker_class   = broker_class
+        self.custodian_class= custodian_class
         self.tb_class       = tb_class
         self.output_fp      = output_fp
         self.mapper_fp      = mapper_fp
@@ -58,6 +66,8 @@ class InvmtOutputFormatter:
         self.write_sublead_output()
         self.write_recon_output()
         self.write_portfolio_output()
+        self.write_processed_broker()
+        self.write_processed_custodian_confirmation()
 
 
     def get_data(self):
@@ -65,6 +75,8 @@ class InvmtOutputFormatter:
         self.portfolio_input_df = self.portfolio_class.main()
         self.recon_input_df_detail = self.recon_class.main()
         self.portfolio_mapper_df = pd.read_excel(self.mapper_fp)
+        self.broker_df = self.broker_class.main()
+        self.custodian_confirmation_df = self.custodian_class.main()
             
     def build_varname_to_values(self, df):
         
@@ -201,6 +213,20 @@ class InvmtOutputFormatter:
         for src, dst in zip(ws[f"{src_excelcol}{src_excelrow}"], ws[f"{dst_excelcol}{dst_excelrow}"]):
             dst.fill = copy(src.fill)
     
+    def _get_column_lst_letters_by_dtype(self, df, data_type):
+
+        # Convert data_type list to dtype objects
+        data_type_dtypes = [np.dtype(dtype) for dtype in data_type]
+
+        # Get the list of columns whose data types match those in data_type
+        lst_of_wanted_cols = df.columns[df.dtypes.isin(data_type_dtypes)].tolist()
+
+        lst_of_wanted_cols_indices = [df.columns.get_loc(col) for col in lst_of_wanted_cols]
+
+        lst_of_wanted_cols_letters = [openpyxl.utils.cell.get_column_letter(idx+1) for idx in lst_of_wanted_cols_indices]
+
+        return lst_of_wanted_cols_letters
+    
     def map_portfolio_columns(self):
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
@@ -245,25 +271,16 @@ class InvmtOutputFormatter:
         total_equity = true_match['Value'].sum()
 
         return total_equity
-
-    def filter_tb_for_bond_int(self):
-
-        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_BOND_INT)
-
-        filtered_tb = true_match.copy()
-
-        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
-
-        filtered_tb = filtered_tb.sort_values(by = 'Include / Exclude', ascending = False, ignore_index = True)
-
-        # drop cols
-        filtered_tb = filtered_tb.drop(["L/S (interval)", "Completed FY?"], axis = 1)
-
-        return filtered_tb.set_index('Account No').copy()
     
-    def filter_tb_for_bond_intrec(self):
+    def filter_tb_for_sublead_field(self, field):
 
-        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_BOND_INTREC)
+        field_dict = {"bond_int"    : InvmtOutputFormatter.LSCODES_BOND_INT,
+                      "bond_intrec" : InvmtOutputFormatter.LSCODES_BOND_INTREC
+                      }
+        
+        ls_codes = field_dict[field]
+        
+        is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, ls_codes)
 
         filtered_tb = true_match.copy()
 
@@ -373,8 +390,8 @@ class InvmtOutputFormatter:
 
         templ_ws.column_dimensions[varname_excelcol].hidden = True
 
-        filtered_tb_bond_int = self.filter_tb_for_bond_int()
-        filtered_tb_bond_intrec = self.filter_tb_for_bond_intrec()
+        filtered_tb_bond_int = self.filter_tb_for_sublead_field("bond_int")
+        filtered_tb_bond_intrec = self.filter_tb_for_sublead_field("bond_intrec")
 
         self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39",
                                                "Interest - Bonds TB",
@@ -414,6 +431,8 @@ class InvmtOutputFormatter:
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 1, templ_ws)
 
+        
+
         for r_idx, row in enumerate(self.recon_input_df_summary.values, 2):
             for c_idx, value in enumerate(row, 1):
                 templ_ws.cell(row=r_idx, column=c_idx, value=value)
@@ -429,11 +448,10 @@ class InvmtOutputFormatter:
                                                            axis = 0,
                                                            ignore_index = True
                                                            )
+        
+        cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
 
-        self.recon_input_df_detail = self.recon_input_df_detail.drop(['CLIENTNUMBER', 'FY', 'UPLOADER',
-                                                                     'UPLOADDATETIME', 'COMMENT1', 'COMMENT2',
-                                                                     'COMMENT3'
-                                                                     ], axis = 1)
+        self.recon_input_df_detail = self.recon_input_df_detail.drop(cols_to_drop, axis = 1)
 
         # detail content writing
         for c_idx, header_value in enumerate(self.recon_input_df_detail.columns, 1):
@@ -448,6 +466,7 @@ class InvmtOutputFormatter:
         
         self._create_header(templ_ws, detail_sheet_name, 0, 1)
 
+        self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -475,14 +494,19 @@ class InvmtOutputFormatter:
         templ_ws.merge_cells(f"T{row}:Z{row}") # per rsm
         templ_ws.merge_cells(f"AB{row}:AE{row}") # per rsm
         templ_ws.merge_cells(f"AG{row}:AJ{row}") # if ltp is not within bis ask spread
+
+        content_df = self.processed_portfolio_input_df.copy()
         
-        input_length = len(self.processed_portfolio_input_df)
+        input_length = len(content_df)
         if input_length > 25:
             templ_ws.insert_rows(idx = 40, amount = input_length - 25 + 2)
 
         self.sort_portfolio_input_df()
 
-        transposed_df = self.processed_portfolio_input_df.T
+        transposed_df = content_df.T
+
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+        lst_of_date_cols = self._get_column_lst_letters_by_dtype(content_df, ["datetime64[ns]"])
 
         for col in transposed_df.index:
             row = 13 + 5
@@ -495,13 +519,19 @@ class InvmtOutputFormatter:
                 except:
                     pass
                 self._standardise_number_format(templ_ws,
-                                                ['J', 'K', 'M', 'O', 'P', 'Q',
-                                                 'R', 'S', 'U', 'V', 'W', 'AA',
-                                                 'AB', 'AC', 'AF', 'AG', 'AH',
-                                                 'AI'], # TODO: hardcoded
+                                                ['J', 'K', 'N', 'P', 'Q', 'R',
+                                                 'S', 'T', 'V', 'W', 'X', 'AB',
+                                                 'AC', 'AD', 'AG', 'AH', 'AI',
+                                                 'AJ'], # TODO: hardcoded
                                                 row
                                                 )
-                self._standardise_date_format(templ_ws, ['H'], row) # TODO: format not showing
+                self._standardise_date_format(templ_ws, ['H'], row)
+                # self._standardise_number_format(templ_ws, lst_of_number_cols, row)
+                # self._standardise_date_format(templ_ws, lst_of_date_cols, row) # TODO: format not showing
+        
+        # for r_idx, row in enumerate(content_df.values, 1):
+        #     self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx)
+        #     self._standardise_date_format(templ_ws, lst_of_date_cols, r_idx)
 
         row = 13 + 5
 
@@ -626,7 +656,71 @@ class InvmtOutputFormatter:
         templ_wb.save(self.output_fp)
         templ_wb.close()
 
+    def write_processed_broker(self):
 
+        sheet_name = "Broker invmt txn listing"
+
+        templ_wb = openpyxl.load_workbook(self.output_fp)
+        templ_ws = templ_wb[sheet_name]
+
+        cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
+        content_df = self.broker_df.copy()
+
+        content_df = content_df.drop(cols_to_drop, axis = 1)
+
+        for c_idx, header_value in enumerate(content_df.columns, 1):
+            templ_ws.cell(row=1, column=c_idx, value=header_value)
+            col = openpyxl.utils.cell.get_column_letter(c_idx)
+            self._format_header_cell([col], 1, templ_ws)
+
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+        lst_of_date_cols = self._get_column_lst_letters_by_dtype(content_df, ["datetime64[ns]"])
+
+        for r_idx, row in enumerate(content_df.values, 2):
+            for c_idx, value in enumerate(row, 1):
+                templ_ws.cell(row=r_idx, column=c_idx, value=value)
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx)
+            self._standardise_date_format(templ_ws, lst_of_date_cols, r_idx)
+        
+        self._create_header(templ_ws, sheet_name, 0, 1)
+
+        self._adjust_col_width(templ_ws)
+
+        templ_wb.save(self.output_fp)
+        templ_wb.close()
+
+    def write_processed_custodian_confirmation(self):
+
+        sheet_name = "Custodian confirmation"
+
+        templ_wb = openpyxl.load_workbook(self.output_fp)
+        templ_ws = templ_wb[sheet_name]
+
+        cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
+        cols_to_drop.append("COMPLETEDFY")
+
+        content_df = self.custodian_confirmation_df.copy()
+
+        content_df = content_df.drop(cols_to_drop, axis = 1)
+
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+
+        for c_idx, header_value in enumerate(content_df.columns, 1):
+            templ_ws.cell(row=1, column=c_idx, value=header_value)
+            col = openpyxl.utils.cell.get_column_letter(c_idx)
+            self._format_header_cell([col], 1, templ_ws)
+
+        for r_idx, row in enumerate(content_df.values, 2):
+            for c_idx, value in enumerate(row, 1):
+                templ_ws.cell(row=r_idx, column=c_idx, value=value)
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx)
+                
+        self._create_header(templ_ws, sheet_name, 0, 1)
+
+        self._adjust_col_width(templ_ws)
+
+        templ_wb.save(self.output_fp)
+        templ_wb.close()
 
 
 if __name__ == "__main__":
@@ -638,11 +732,13 @@ if __name__ == "__main__":
     output_fp = r"D:\workspace\luna\personal_workspace\db\funds_test.xlsx"
     portfolio_mapper_fp = r"D:\workspace\luna\parameters\invmt_portfolio_mapper.xlsx"
 
-    client_class = tables.client.ClientInfoLoader_From_LunaHub(client_no)
-    sublead_class = tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
+    client_class    = tables.client.ClientInfoLoader_From_LunaHub(client_no)
+    sublead_class   = tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
     portfolio_class = tables.fs_funds_invmt_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_no, fy)
-    recon_class = tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_no, fy)
-    tb_class = common.TBLoader_From_LunaHub(client_no, fy)
+    recon_class     = tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_no, fy)
+    broker_class    = tables.fs_funds_broker_statement.FundsBrokerStatement_DownloaderFromLunaHub(client_no, fy)
+    custodian_class = tables.fs_funds_custodian_confirmation.FundsCustodianConfirmation_DownloaderFromLunaHub(client_no, fy)
+    tb_class        = common.TBLoader_From_LunaHub(client_no, fy)
 
     aic_name = "DS Team"
 
@@ -658,16 +754,18 @@ if __name__ == "__main__":
         else:
             continue
     
-    self = InvmtOutputFormatter(sublead_class  = sublead_class,
-                                 portfolio_class= portfolio_class,
-                                 recon_class    = recon_class,
-                                 tb_class       = tb_class,
-                                 output_fp      = output_fp,
-                                 mapper_fp      = portfolio_mapper_fp,
-                                 user_inputs    = user_inputs,
-                                 client_class   = client_class,
-                                 fy             = fy,
-                                 aic_name       = aic_name
+    self = InvmtOutputFormatter(sublead_class       = sublead_class,
+                                 portfolio_class    = portfolio_class,
+                                 recon_class        = recon_class,
+                                 broker_class       = broker_class,
+                                 custodian_class    = custodian_class,
+                                 tb_class           = tb_class,
+                                 output_fp          = output_fp,
+                                 mapper_fp          = portfolio_mapper_fp,
+                                 user_inputs        = user_inputs,
+                                 client_class       = client_class,
+                                 fy                 = fy,
+                                 aic_name           = aic_name
                                  )
 
 

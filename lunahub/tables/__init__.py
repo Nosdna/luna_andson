@@ -11,3 +11,5 @@ from luna.lunahub.tables import fs_funds_userresponse
 from luna.lunahub.tables import fs_funds_invmt_output_portfolio
 from luna.lunahub.tables import fs_funds_invmt_output_sublead
 from luna.lunahub.tables import fs_funds_invmt_txn_recon_details
+from luna.lunahub.tables import fs_funds_broker_statement
+from luna.lunahub.tables import fs_funds_custodian_confirmation
