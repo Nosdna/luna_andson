@@ -55,9 +55,9 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if True:
-        client_number   = 50077
+        client_number   = 70000
         fy              = 2023
-        aic_name        = "DS Team"
+        aic_name        = "yipjunhorng"
     #############################################
 
     # Get the luna folderpath 
@@ -70,6 +70,8 @@ if __name__ == "__main__":
     sublead_class = lunahub.tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_number, fy)
     portfolio_class = lunahub.tables.fs_funds_invmt_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_number, fy)
     recon_class = lunahub.tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_number, fy)
+    broker_class    = lunahub.tables.fs_funds_broker_statement.FundsBrokerStatement_DownloaderFromLunaHub(client_number, fy)
+    custodian_class = lunahub.tables.fs_funds_custodian_confirmation.FundsCustodianConfirmation_DownloaderFromLunaHub(client_number, fy)
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
     for attempt in range(12):
@@ -89,9 +91,11 @@ if __name__ == "__main__":
     #output_fp = pyeasylib.check_filepath(output_fp)
     pyeasylib.create_folder_for_filepath(output_fp)    
 
-    self = InvmtOutputFormatter(sublead_class  = sublead_class,
+    self = InvmtOutputFormatter(sublead_class   = sublead_class,
                                  portfolio_class= portfolio_class,
                                  recon_class    = recon_class,
+                                 broker_class   = broker_class,
+                                 custodian_class= custodian_class,
                                  tb_class       = tb_class,
                                  output_fp      = output_fp,
                                  mapper_fp      = portfolio_mapper_fp,

@@ -21,9 +21,11 @@ import pyeasylib.excellib as excellib
 
 class InvmtOutputFormatter:
 
-    LSCODES_NAV         = [pd.Interval(6900.0, 6900.4, closed='both')]
-    LSCODES_BOND_INT    = [pd.Interval(7400.2, 7400.2, closed='both')]
-    LSCODES_BOND_INTREC = [pd.Interval(5200.0, 5300.0, closed='left')]
+    LSCODES_NAV                 = [pd.Interval(6900.0, 6900.4, closed='both')]
+    LSCODES_BOND_INT            = [pd.Interval(7400.2, 7400.2, closed='both')]
+    LSCODES_BOND_INTREC         = [pd.Interval(5200.0, 5300.0, closed='left')]
+    LSCODES_UNREALISED_GAINLOSS = [pd.Interval(7000.2, 7000.2, closed='both')]
+    LSCODES_REALISED_GAINLOSS   = [pd.Interval(7000.1, 7000.1, closed='both')]
 
     DATABASE_MISC_COLS  = ['WORKFLOWDATE', 'CLIENTNUMBER','FY',
                            'UPLOADER', 'UPLOADDATETIME',
@@ -263,7 +265,6 @@ class InvmtOutputFormatter:
                                                            ignore_index = True
                                                            )
 
-
     def process_nav(self):
 
         is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_NAV)
@@ -275,7 +276,9 @@ class InvmtOutputFormatter:
     def filter_tb_for_sublead_field(self, field):
 
         field_dict = {"bond_int"    : InvmtOutputFormatter.LSCODES_BOND_INT,
-                      "bond_intrec" : InvmtOutputFormatter.LSCODES_BOND_INTREC
+                      "bond_intrec" : InvmtOutputFormatter.LSCODES_BOND_INTREC,
+                      "unrealised_gainloss": InvmtOutputFormatter.LSCODES_UNREALISED_GAINLOSS,
+                      "realised_gainloss": InvmtOutputFormatter.LSCODES_REALISED_GAINLOSS
                       }
         
         ls_codes = field_dict[field]
@@ -284,8 +287,13 @@ class InvmtOutputFormatter:
 
         filtered_tb = true_match.copy()
 
-        filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
-
+        if field in ["bond_int", "bond_intrec"]:
+            filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Included' if re.match('(?i).*interest.*', x) else 'Excluded')
+        elif field in ["unrealised_gainloss", "realised_gainloss"]:
+            filtered_tb['Include / Exclude'] = filtered_tb['Name'].apply(lambda x: 'Excluded' if re.match('(?i).*fx|foreign exchange|forex.*', x) else 'Included')
+        else:
+            pass
+        
         filtered_tb = filtered_tb.sort_values(by = 'Include / Exclude', ascending = False, ignore_index = True)
 
         # drop cols
@@ -392,6 +400,8 @@ class InvmtOutputFormatter:
 
         filtered_tb_bond_int = self.filter_tb_for_sublead_field("bond_int")
         filtered_tb_bond_intrec = self.filter_tb_for_sublead_field("bond_intrec")
+        filtered_tb_unrealised_gainloss = self.filter_tb_for_sublead_field("unrealised_gainloss")
+        filtered_tb_realised_gainloss = self.filter_tb_for_sublead_field("realised_gainloss")
 
         self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39",
                                                "Interest - Bonds TB",
@@ -401,9 +411,19 @@ class InvmtOutputFormatter:
                                                "Interest Receivables - Bonds TB", 
                                                "Trial Balance for Interest Receivables - Bonds",
                                                filtered_tb_bond_intrec)
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E33",
+                                               "Unrealised Gain or Loss TB", 
+                                               "Trial Balance for Unrealised Gain/Loss",
+                                               filtered_tb_unrealised_gainloss)
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E45",
+                                               "Realised Gain or Loss TB", 
+                                               "Trial Balance for Realised Gain/Loss",
+                                               filtered_tb_realised_gainloss)
 
         templ_ws["E39"].fill = copy(templ_ws["D39"].fill)
         templ_ws["E41"].fill = copy(templ_ws["D41"].fill)
+        templ_ws["E33"].fill = copy(templ_ws["D33"].fill)
+        templ_ws["E45"].fill = copy(templ_ws["D45"].fill)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -426,18 +446,21 @@ class InvmtOutputFormatter:
             MARKETVALUEBROKER       = ('MARKETVALUEBROKER', 'sum'),
             VALUEDIFFERENCE         = ("VALUEDIFFERENCE", 'sum')
             )
-        for c_idx, header_value in enumerate(self.recon_input_df_summary.columns, 1):
+        
+        content_df = self.recon_input_df_summary.copy()
+
+        for c_idx, header_value in enumerate(content_df.columns, 1):
             templ_ws.cell(row=1, column=c_idx, value=header_value)
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 1, templ_ws)
 
-        
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
 
         for r_idx, row in enumerate(self.recon_input_df_summary.values, 2):
             for c_idx, value in enumerate(row, 1):
                 templ_ws.cell(row=r_idx, column=c_idx, value=value)
-            self._standardise_number_format(templ_ws, ['B', 'C', 'D', 'E', 'F', 'G'], r_idx) #TODO: hardcoded excelcols
-        
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx) 
+            
         self._create_header(templ_ws, summary_sheet_name, 0, 1)
 
         # detail
@@ -449,24 +472,27 @@ class InvmtOutputFormatter:
                                                            ignore_index = True
                                                            )
         
+        content_df = self.recon_input_df_detail.copy()
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+        
         cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
 
-        self.recon_input_df_detail = self.recon_input_df_detail.drop(cols_to_drop, axis = 1)
+        content_df = content_df.drop(cols_to_drop, axis = 1)
 
         # detail content writing
-        for c_idx, header_value in enumerate(self.recon_input_df_detail.columns, 1):
+        for c_idx, header_value in enumerate(content_df.columns, 1):
             templ_ws.cell(row=1, column=c_idx, value=header_value)
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 1, templ_ws)
 
-        for r_idx, row in enumerate(self.recon_input_df_detail.values, 2):
+        for r_idx, row in enumerate(content_df.values, 2):
             for c_idx, value in enumerate(row, 1):
                 templ_ws.cell(row=r_idx, column=c_idx, value=value)
-            self._standardise_number_format(templ_ws, ['B', 'H', 'N', 'O'], r_idx) #TODO: hardcoded excelcols
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx) #TODO: hardcoded excelcols
         
         self._create_header(templ_ws, detail_sheet_name, 0, 1)
 
-        self._adjust_col_width(templ_ws)
+        # self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -651,7 +677,7 @@ class InvmtOutputFormatter:
             templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
 
 
-        self._adjust_col_width(templ_ws)
+        # self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -684,7 +710,7 @@ class InvmtOutputFormatter:
         
         self._create_header(templ_ws, sheet_name, 0, 1)
 
-        self._adjust_col_width(templ_ws)
+        # self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -717,8 +743,19 @@ class InvmtOutputFormatter:
                 
         self._create_header(templ_ws, sheet_name, 0, 1)
 
-        self._adjust_col_width(templ_ws)
+        # self._adjust_col_width(templ_ws)
 
+        templ_wb.save(self.output_fp)
+        templ_wb.close()
+
+        col_adjust = excellib.width_methods.ColumnsWidthAdjuster(self.output_fp)
+        col_adjust.main(sheetnames = True)
+
+        templ_wb = openpyxl.load_workbook(self.output_fp)
+        templ_ws = templ_wb["<5100-xx>Investment sub-lead"]
+        templ_ws.column_dimensions["A"].hidden = True
+        templ_ws = templ_wb["<5100-xx>Investment Portfolio"]
+        templ_ws.column_dimensions["M"].hidden = True
         templ_wb.save(self.output_fp)
         templ_wb.close()
 
@@ -769,7 +806,7 @@ if __name__ == "__main__":
                                  )
 
 
-    if True:
+    if False:
 
         import webbrowser
         webbrowser.open(output_fp)
