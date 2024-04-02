@@ -229,6 +229,32 @@ class InvmtOutputFormatter:
 
         return lst_of_wanted_cols_letters
     
+    def _get_column_lst_letters_by_substr(self, df, substr):
+
+        mask = df.columns.str.contains(substr)
+
+        # Filter columns based on the mask
+        lst_of_wanted_cols = df.columns[mask].tolist()
+
+        # Get the indices of the columns
+        lst_of_wanted_cols_indices = df.columns.get_indexer(lst_of_wanted_cols)
+
+        # Get the column letters corresponding to the indices
+        lst_of_wanted_cols_letters = [openpyxl.utils.cell.get_column_letter(idx+1) for idx in lst_of_wanted_cols_indices]
+
+        return lst_of_wanted_cols_letters
+    
+    def _get_col_letter_from_ref(self, ref_excelcol, mvmt):
+        ref_colno = column_index_from_string(ref_excelcol)
+        target_colno = ref_colno + int(mvmt)
+        target_excelcol = get_column_letter(target_colno)
+
+        return target_excelcol
+    
+    def _create_tb_reference_formula_for_sublead(self, name_of_reference_sheet):
+
+        return f"=SUMIF('{name_of_reference_sheet}'!H:H, \"Included\", '{name_of_reference_sheet}'!F:F)"
+    
     def map_portfolio_columns(self):
         
         self.portfolio_mapper_df = self.portfolio_mapper_df[~self.portfolio_mapper_df["Standardised"].isna()]
@@ -301,7 +327,7 @@ class InvmtOutputFormatter:
 
         return filtered_tb.set_index('Account No').copy()
     
-    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, cell, reference_sheetname, title, filtered_tb):
+    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, return_source_cell, cell, reference_sheetname, title, filtered_tb):
 
         field_to_source_locations = {"<<<link>>>": cell}
 
@@ -310,7 +336,7 @@ class InvmtOutputFormatter:
 
         field_to_data = {"<<<link>>>" : filtered_tb}
 
-        hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
+        hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, "A8", field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
         hyperlink_class.write_reference_data()
         hyperlink_class.write_source_data()
 
@@ -328,7 +354,7 @@ class InvmtOutputFormatter:
 
         field_to_source_locations = {"<<<Return to Sub-lead>>>": "A8"}
 
-        hyperlink_class = common.hyperlinks.DataHyperlink(reference_sheetname, field_to_source_locations, source_sheetname, [], {}, wb)
+        hyperlink_class = common.hyperlinks.DataHyperlink(reference_sheetname, return_source_cell, field_to_source_locations, source_sheetname, [], {}, wb)
         hyperlink_class.write_reference_data()
         hyperlink_class.write_source_data()
 
@@ -403,22 +429,29 @@ class InvmtOutputFormatter:
         filtered_tb_unrealised_gainloss = self.filter_tb_for_sublead_field("unrealised_gainloss")
         filtered_tb_realised_gainloss = self.filter_tb_for_sublead_field("realised_gainloss")
 
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39",
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39", "E39",
                                                "Interest - Bonds TB",
                                                "Trial Balance for Interest - Bonds",
                                                filtered_tb_bond_int)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E41",
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E41", "E41",
                                                "Interest Receivables - Bonds TB", 
                                                "Trial Balance for Interest Receivables - Bonds",
                                                filtered_tb_bond_intrec)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E33",
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E33", "E33",
                                                "Unrealised Gain or Loss TB", 
                                                "Trial Balance for Unrealised Gain/Loss",
                                                filtered_tb_unrealised_gainloss)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E45",
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E45", "E45",
                                                "Realised Gain or Loss TB", 
                                                "Trial Balance for Realised Gain/Loss",
                                                filtered_tb_realised_gainloss)
+        
+        # TODO: check if this is what they want
+        if False:
+            templ_ws["D39"].value = self._create_tb_reference_formula_for_sublead("Interest - Bonds TB")
+            templ_ws["D41"].value = self._create_tb_reference_formula_for_sublead("Interest Receivables - Bonds TB")
+            templ_ws["D33"].value = self._create_tb_reference_formula_for_sublead("Unrealised Gain or Loss TB")
+            templ_ws["D45"].value = self._create_tb_reference_formula_for_sublead("Realised Gain or Loss TB")
 
         templ_ws["E39"].fill = copy(templ_ws["D39"].fill)
         templ_ws["E41"].fill = copy(templ_ws["D41"].fill)
@@ -435,7 +468,7 @@ class InvmtOutputFormatter:
 
         templ_wb = openpyxl.load_workbook(self.output_fp)
 
-        # summary
+        # summary tab
         templ_ws = templ_wb[summary_sheet_name]
 
         # summary content writing
@@ -463,7 +496,7 @@ class InvmtOutputFormatter:
             
         self._create_header(templ_ws, summary_sheet_name, 0, 1)
 
-        # detail
+        # detail tab
         templ_ws = templ_wb[detail_sheet_name]
 
         self.recon_input_df_detail = self.recon_input_df_detail.sort_values(by = ['VALUEDIFFERENCE', 'MATCHINGINDICATORNAME', 'CONFIDENCELEVELNAME'],
@@ -472,12 +505,28 @@ class InvmtOutputFormatter:
                                                            ignore_index = True
                                                            )
         
-        content_df = self.recon_input_df_detail.copy()
-        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
-        
+        content_df = self.recon_input_df_detail.copy()        
         cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
-
         content_df = content_df.drop(cols_to_drop, axis = 1)
+
+        # add formula columns
+        content_df.loc[:, ["PRICEDIFFERENCE", "QUANTITYDIFFERENCE"]] = float(0.00)
+
+        content_df_col_order = ['SECURITYNAMEFUNDADMIN', 'SECURITYNAMEBROKER', 'ISINFUNDADMIN',
+                                'ISINBROKER', 'TRADEDATEFUNDADMIN', 'TRADEDATEBROKER', 'PRICEFUNDADMIN',
+                                'PRICEBROKER', 'PRICEDIFFERENCE', 'QUANTITYFUNDADMIN', 'QUANTITYBROKER',
+                                'QUANTITYDIFFERENCE', 'MARKETVALUEFUNDADMIN', 'MARKETVALUEBROKER', 'VALUEDIFFERENCE',
+                                'TRANSACTIONTYPEFUNDADMIN', 'TRANSACTIONTYPEBROKER',
+                                'TRANSACTIONTYPERSMFUNDADMIN', 'TRANSACTIONTYPERSMBROKER',
+                                'LOCALCURRFUNDADMIN', 'LOCALCURRBROKER', 'EXCEPTIONINDICATOR',
+                                'CONFIDENCELEVELNAME', 'MATCHINGINDICATORNAME', 'INSTITUTIONFUNDADMIN',
+                                'INSTITUTIONBROKER']
+        content_df = content_df[content_df_col_order]
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+        lst_of_date_cols = self._get_column_lst_letters_by_dtype(content_df, ["datetime64[ns]"] )
+        lst_of_fundadmin_cols = self._get_column_lst_letters_by_substr(content_df, "FUNDADMIN")
+        lst_of_broker_cols = self._get_column_lst_letters_by_substr(content_df, "BROKER")
+        lst_of_difference_cols = self._get_column_lst_letters_by_substr(content_df, "DIFFERENCE")
 
         # detail content writing
         for c_idx, header_value in enumerate(content_df.columns, 1):
@@ -486,13 +535,25 @@ class InvmtOutputFormatter:
             self._format_header_cell([col], 1, templ_ws)
 
         for r_idx, row in enumerate(content_df.values, 2):
+            
             for c_idx, value in enumerate(row, 1):
-                templ_ws.cell(row=r_idx, column=c_idx, value=value)
-            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx) #TODO: hardcoded excelcols
-        
+                # templ_ws.cell(row=r_idx, column=c_idx, value=value)
+                cell = templ_ws.cell(row=r_idx, column=c_idx, value=value)
+                excelcol = openpyxl.utils.cell.get_column_letter(c_idx)
+                if excelcol in lst_of_fundadmin_cols:
+                    cell.fill = PatternFill("solid", fgColor = "00CCFFFF") # blue
+                elif excelcol in lst_of_broker_cols:
+                    cell.fill = PatternFill("solid", fgColor = "00CCCCFF") # purple
+                elif excelcol in lst_of_difference_cols:
+                    fa_excelcol = self._get_col_letter_from_ref(excelcol, -2)
+                    br_excelcol = self._get_col_letter_from_ref(excelcol, -1)
+                    cell.value = f"= {fa_excelcol}{r_idx+7} - {br_excelcol}{r_idx+7}"
+                else:
+                    pass
+                    
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx) 
+            self._standardise_date_format(templ_ws, lst_of_date_cols, r_idx)
         self._create_header(templ_ws, detail_sheet_name, 0, 1)
-
-        # self._adjust_col_width(templ_ws)
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -806,7 +867,7 @@ if __name__ == "__main__":
                                  )
 
 
-    if False:
+    if True:
 
         import webbrowser
         webbrowser.open(output_fp)

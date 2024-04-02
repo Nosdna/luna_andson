@@ -55,9 +55,9 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if True:
-        client_number   = 70000
+        client_number   = 50067
         fy              = 2023
-        aic_name        = "yipjunhorng"
+        aic_name        = "llpe"
     #############################################
 
     # Get the luna folderpath 

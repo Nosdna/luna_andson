@@ -10,6 +10,7 @@ class DataHyperlink:
     
     def __init__(self, 
                  source_sheetname,
+                 source_cell,
                  field_to_source_locations,
                  reference_sheetname,
                  header_rows,
@@ -53,6 +54,7 @@ class DataHyperlink:
         self.field_to_source_locations  = field_to_source_locations
         
         # Place of the reference data, i.e. the cell after clicking on the hyperlink
+        self.source_cell                = source_cell
         self.reference_sheetname        = reference_sheetname
         self.header_rows                = header_rows
         self.field_to_data              = field_to_data
@@ -138,9 +140,8 @@ class DataHyperlink:
             # Get the target cell
             # target_row, target_col = field_to_target_cell[fieldname]
             # target_col_letter = openpyxl.utils.get_column_letter(target_col)
-            target_col_letter = "A"
-            target_row = 9
-            target_cell = f"{target_col_letter}{target_row}"
+            # target_cell = f"{target_col_letter}{target_row}"
+            target_cell = self.source_cell
             
             # Set the hyperlink
             hyperlink = f"#'{reference_sheetname}'!{target_cell}"            
@@ -187,6 +188,7 @@ if __name__ == "__main__":
 
     source_sheetname = "<5100-xx>Investment sub-lead"
     field_to_source_locations = {"<<<link>>>": "E39"}
+    source_cell = "A9"
     reference_sheetname = "TB"
     import luna.common as common
     tb_class = common.TBLoader_From_LunaHub(50060, 2023)
@@ -205,7 +207,7 @@ if __name__ == "__main__":
 
     # Try again where the wb is already present
     if True:
-        self = DataHyperlink(source_sheetname, field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
+        self = DataHyperlink(source_sheetname, source_cell, field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
         self.write_reference_data()
         
         self.write_source_data()
