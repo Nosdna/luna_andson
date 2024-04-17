@@ -383,12 +383,14 @@ class InvmtOutputFormatter:
         varname_to_values = self.build_varname_to_values(self.sublead_input_df)
         varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUEPREVFY'] = varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUE']
         varname_to_values.at['cost_roll_sales_txn_report_sales', 'VALUE'] = varname_to_values.at['cost_roll_sales_txn_report_cost', 'VALUE']
+        varname_to_values = varname_to_values.drop("cost_roll_sales_txn_report_cost")
         self.varname_to_values = varname_to_values.copy()
 
         # save column index
         varname_excelcol = colname_to_excelcol.at["var_name"]
         cfy_excelcol = colname_to_excelcol.at["Current FY"]
         pfy_excelcol = colname_to_excelcol.at["Previous FY"]
+
 
         for varname in varname_to_values.index:
             cfy = varname_to_values.at[varname, "VALUE"]
@@ -823,7 +825,7 @@ class InvmtOutputFormatter:
 
 if __name__ == "__main__":
 
-    client_no = 50060
+    client_no = 10000
     fy        = 2023
 
     # recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
