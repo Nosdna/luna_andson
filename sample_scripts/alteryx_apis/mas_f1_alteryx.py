@@ -8,6 +8,7 @@ import sys
 import argparse
 import importlib.util
 import time
+from datetime import datetime
 
 # Set luna path - Load from settings.py
 if True:
@@ -35,6 +36,12 @@ from luna.fsvi.mas.form1.mas_f1_output_formatter import OutputFormatter
 # Import help lib
 import pyeasylib
 
+logfile = r"D:\Desktop\mas_f1_alteryx.txt"
+
+f = open(logfile,'a')
+f.write(f"[{str(datetime.now())}] Starting...\n")
+f.close()
+
 
 # To run on command prompt
 if __name__ == "__main__":
@@ -45,12 +52,22 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     parser.add_argument("--aic_name", required=True)
     
+    
+    f = open(logfile,'a')
+    f.write("1\n")
+    f.close()
+
     # Parse the information
     if True:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = args.client_fy
         aic_name = args.aic_name
+
+        
+        f = open(logfile,'a')
+        f.write("2\n")
+        f.close()
         
     #############################################
     ## FOR DEBUGGING ONLY ##
@@ -64,6 +81,11 @@ if __name__ == "__main__":
     luna_init_file = luna.__file__
     luna_folderpath = os.path.dirname(luna_init_file)
 
+    
+    f = open(logfile,'a')
+    f.write("3\n")
+    f.close()
+
     # Load mapping file
     mas_tb_mapping_fp = os.path.join(settings.LUNA_FOLDERPATH, "parameters", "mas_forms_tb_mapping.xlsx")  
     mapper_class = fsvi.mas.MASTemplateReader_Form1(mas_tb_mapping_fp, sheet_name = "Form 1 - TB mapping")
@@ -73,6 +95,11 @@ if __name__ == "__main__":
 
     # Load client class from LunaHub
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
+
+    
+    f = open(logfile,'a')
+    f.write("4\n")
+    f.close()
     
     # Load aged ar class
     try:
@@ -82,6 +109,11 @@ if __name__ == "__main__":
             aged_ar_class = None        
         else:
             raise Exception (e)
+        
+    
+    f = open(logfile,'a')
+    f.write("5\n")
+    f.close()
 
     if True:  
         # ocr class
@@ -90,6 +122,11 @@ if __name__ == "__main__":
         ocr_fp = os.path.join(luna_folderpath, "personal_workspace", "tmp", ocr_fn)
         ocr_class = fsvi.mas.form1.mas_f1_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form1", luna_fp = luna_folderpath)
 
+    
+    f = open(logfile,'a')
+    f.write("6\n")
+    f.close()
+    
     # load user response
     for attempt in range(12):
         time.sleep(5)
@@ -103,12 +140,20 @@ if __name__ == "__main__":
             raise Exception (f"Data not found for specified client {client_number} or FY {fy}.")
         else:
             continue
+
+
+    f = open(logfile,'a')
+    f.write("7\n")
+    f.close()
     
     self = fsvi.mas.form1.MASForm1_Generator(tb_class, aged_ar_class,
                             mapper_class, client_class, ocr_class,
                             fy=fy, fuzzy_match_threshold=80, 
                             user_inputs=user_inputs)
     
+    f = open(logfile,'a')
+    f.write("8\n")
+    f.close()    
 
     if True:
         # Specify temp file
@@ -120,11 +165,21 @@ if __name__ == "__main__":
         
         print (f"Saved to {output_fp}.")
 
+        
+        f = open(logfile,'a')
+        f.write("9\n")
+        f.close()
+
         # Specify OCR output file
         ocr_fn = f"mas_form1_{client_number}_{fy}_ocr.xlsx"
         ocr_fp = os.path.join(settings.TEMP_FOLDERPATH, ocr_fn)
         pyeasylib.create_folder_for_filepath(ocr_fp)    
         self.ocr_df.to_excel(ocr_fp)
+
+        
+        f = open(logfile,'a')
+        f.write("10\n")
+        f.close()
         
         # Run OutputProcessor
         template_fn = r"parameters\mas_forms_tb_mapping.xlsx"
@@ -132,12 +187,22 @@ if __name__ == "__main__":
         final_output_fn = f"mas_form1_formatted_{client_number}_{fy}.xlsx"
         final_output_fp = os.path.join(settings.TEMP_FOLDERPATH, final_output_fn)
 
+        
+        f = open(logfile,'a')
+        f.write("11\n")
+        f.close()
+
         # Initialise client_class
         client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
 
         # Format output
         formatting_class = OutputFormatter(output_fp, ocr_fp, final_output_fp,
                                            client_class, fy, aic_name)
+        
+        
+        f = open(logfile,'a')
+        f.write("12\n")
+        f.close()
 
         print (f"Final output saved to {final_output_fp}.")
 

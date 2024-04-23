@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # parser.add_argument("--final_output_fp", required=True)
     
     # Parse the information
-    if False:
+    if True:
         args = parser.parse_args()
         # aic_name = args.aic_name
         current_qtr = args.current_qtr
@@ -64,9 +64,9 @@ if __name__ == "__main__":
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if True:
+    if False:
         current_qtr                 = "2023-09-30"
-        awp_fp                      = r"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\Input\AR Capital\form 2.xlsx" #r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+        awp_fp                      = r"D:\Documents\Project\Internal Projects\20240418 MAS Forms\SSAM\SSAM Form 2 Working - Prior Year (2022).xlsx" #"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\Input\MG\MG Based capital calculation Dec 2021-1.xlsx"
         # final_output_fp             = r"D:\workspace\luna\personal_workspace\tmp\mas_form3_40709_2022.xlsx"
     #############################################
     
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form3_{client_number}_{fy}_sig_accounts.xlsx")
     pattern = os.path.join(settings.TEMP_FOLDERPATH, f"mas_form2_*_*_credit_quality.xlsx")
     list_of_files = glob.glob(pattern)
-    cred_quality_fp = max(list_of_files, key=os.path.getctime)
+    cred_quality_fp = max(list_of_files, key=os.path.getmtime)
     client_number = int(re.findall("mas_form2_(\d+)_\d{4}_credit_quality.xlsx", cred_quality_fp)[0])
     fy = int(re.findall("mas_form2_\d+_(\d+)_credit_quality.xlsx", cred_quality_fp)[0])
 

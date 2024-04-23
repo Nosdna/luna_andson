@@ -501,8 +501,10 @@ class InvmtOutputFormatter:
         # detail tab
         templ_ws = templ_wb[detail_sheet_name]
 
-        self.recon_input_df_detail = self.recon_input_df_detail.sort_values(by = ['VALUEDIFFERENCE', 'MATCHINGINDICATORNAME', 'CONFIDENCELEVELNAME'],
-                                                           ascending=[True, True, False],
+        self.recon_input_df_detail["transaction_type_rsm_rank"] = self.recon_input_df_detail['TRANSACTIONTYPERSMBROKER'].apply(lambda x: 2 if x == "others" else 1)
+        self.recon_input_df_detail["value_difference_abs"] = abs(self.recon_input_df_detail["VALUEDIFFERENCE"])
+        self.recon_input_df_detail = self.recon_input_df_detail.sort_values(by = ['value_difference_abs', 'transaction_type_rsm_rank', 'MATCHINGINDICATORNAME', 'CONFIDENCELEVELNAME'],
+                                                           ascending=[True, True, True, False],
                                                            axis = 0,
                                                            ignore_index = True
                                                            )
@@ -545,7 +547,7 @@ class InvmtOutputFormatter:
                 if excelcol in lst_of_fundadmin_cols:
                     cell.fill = PatternFill("solid", fgColor = "00CCFFFF") # blue
                 elif excelcol in lst_of_broker_cols:
-                    cell.fill = PatternFill("solid", fgColor = "00CCCCFF") # purple
+                    cell.fill = PatternFill("solid", fgColor = "0099CCFF") # purple
                 elif excelcol in lst_of_difference_cols:
                     fa_excelcol = self._get_col_letter_from_ref(excelcol, -2)
                     br_excelcol = self._get_col_letter_from_ref(excelcol, -1)

@@ -1360,7 +1360,7 @@ class MASForm2_Generator_Part2:
                 varname_list.append("rev_dividend")
             elif re.search("(?i)other rev", i):
                 varname_list.append("rev_other_revenue")
-            elif re.search("(?i)interest"):
+            elif re.search("(?i)interest", i):
                 varname_list.append("rev_int_others")
 
         income_exp_not_ord = 0
@@ -1463,9 +1463,9 @@ if __name__ == "__main__":
 
     # TESTER
     if True:
-        client_number = 9289
+        client_number = 14333
         fy = 2023
-        current_quarter_end_date = '2023-09-30'
+        current_quarter_end_date = '2022-09-30'
        
     ### AGED RECEIVABLES ###
     # Load AR from file
@@ -1576,7 +1576,7 @@ if __name__ == "__main__":
         ocr_class = fsvi.mas.form2.mas_f2_ocr_output_formatter.OCROutputProcessor(filepath = ocr_fp, sheet_name = "Sheet1", form = "form2", luna_fp = luna_folderpath)
 
         # awp fp
-        awp_fp = r"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\Input\AR Capital\form 2.xlsx" #r"P:\YEAR 2023\TECHNOLOGY\Technology users\FS Vertical\f2\MG Based capital calculation Dec 2021-1.xlsx"
+        awp_fp = r"D:\Documents\Project\Internal Projects\20231222 Code integration\MAS forms\Demo\Input\MG\MG Based capital calculation Dec 2021-1.xlsx"    
     
     self = MASForm2_Generator_Part2(tb_class,
                                     mapper_class,

@@ -538,6 +538,8 @@ class MASForm3_Generator:
         # Amt
         total_revenue = abs(self.outputdf.loc[:row, "Balance"].sum())
 
+        # self.outputdf.to_excel("D:/Desktop/f3_totalrev_outputdf.xlsx") ## TO REMOVE
+
         logger.info(f"total revenue computed from Template: {total_revenue}")
 
     # Second method: Compute from TB's Value
@@ -1191,7 +1193,7 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if True:
-        client_number = 9289
+        client_number = 5807
         fy = 2023
     #############################################
     

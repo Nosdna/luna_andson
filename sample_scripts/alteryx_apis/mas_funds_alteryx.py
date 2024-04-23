@@ -8,12 +8,13 @@ import sys
 import argparse
 import importlib.util
 import time
+from datetime import datetime
 
 logfile = r"D:\Desktop\mas_funds_alteryx_log.txt"
 
-# f = open(logfile,'a')
-# f.write("Starting...\n")
-# f.close()
+f = open(logfile,'a')
+f.write(f"[{str(datetime.now())}] Starting...\n")
+f.close()
 
 # Set luna path - Load from settings.py
 if True:
@@ -41,9 +42,9 @@ from luna.fsvi.funds.invmt_report_formatter import InvmtOutputFormatter
 # Import help lib
 import pyeasylib
 
-# f = open(logfile,'a')
-# f.write("1\n")
-# f.close()
+f = open(logfile,'a')
+f.write("1\n")
+f.close()
 
 # To run on command prompt
 if __name__ == "__main__":
@@ -54,9 +55,9 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     parser.add_argument("--aic_name", required=True)
 
-    # f = open(logfile,'a')
-    # f.write("2\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("2\n")
+    f.close()
     
     # Parse the information
     if True:
@@ -65,61 +66,61 @@ if __name__ == "__main__":
         fy = args.client_fy
         aic_name = args.aic_name
 
-        # f = open(logfile,'a')
-        # f.write("2.1\n")
-        # f.close()
+        f = open(logfile,'a')
+        f.write("2.1\n")
+        f.close()
         
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
         client_number   = 10000
         fy              = 2023
-        aic_name        = "rsm ds"
+        aic_name        = "lydialimpe"
     #############################################
 
     # Get the luna folderpath 
     luna_init_file = luna.__file__
     luna_folderpath = os.path.dirname(luna_init_file)
 
-    # f = open(logfile,'a')
-    # f.write("2.2\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("2.2\n")
+    f.close()
 
     portfolio_mapper_fp = r"D:\workspace\luna\parameters\invmt_portfolio_mapper.xlsx"
 
-    # f = open(logfile,'a')
-    # f.write("3\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("3\n")
+    f.close()
 
     client_class = lunahub.tables.client.ClientInfoLoader_From_LunaHub(client_number)
-    # f = open(logfile,'a')
-    # f.write("4\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("4\n")
+    f.close()
     sublead_class = lunahub.tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_number, fy)
-    # f = open(logfile,'a')
-    # f.write("5\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("5\n")
+    f.close()
     portfolio_class = lunahub.tables.fs_funds_invmt_output_portfolio.FundsPortfolio_DownloaderFromLunaHub(client_number, fy)
-    # f = open(logfile,'a')
-    # f.write("6\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("6\n")
+    f.close()
     recon_class = lunahub.tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_number, fy)
-    # f = open(logfile,'a')
-    # f.write("7\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("7\n")
+    f.close()
     broker_class    = lunahub.tables.fs_funds_broker_statement.FundsBrokerStatement_DownloaderFromLunaHub(client_number, fy)
-    # f = open(logfile,'a')
-    # f.write("8\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("8\n")
+    f.close()
     custodian_class = lunahub.tables.fs_funds_custodian_confirmation.FundsCustodianConfirmation_DownloaderFromLunaHub(client_number, fy)
-    # f = open(logfile,'a')
-    # f.write("9\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("9\n")
+    f.close()
     tb_class = common.TBLoader_From_LunaHub(client_number, fy)
 
-    # f = open(logfile,'a')
-    # f.write("10\n")
-    # f.close()
+    f = open(logfile,'a')
+    f.write("10\n")
+    f.close()
 
     for attempt in range(12):
         user_response_class = lunahub.tables.fs_funds_userresponse.FundsUserResponse_DownloaderFromLunaHub(
@@ -133,10 +134,18 @@ if __name__ == "__main__":
         else:
             continue
 
+    f = open(logfile,'a')
+    f.write("11\n")
+    f.close()
+
     output_fn = f"mas_funds_investment_{client_number}_{fy}.xlsx"
     output_fp = os.path.join(settings.TEMP_FOLDERPATH, output_fn)
     #output_fp = pyeasylib.check_filepath(output_fp)
-    pyeasylib.create_folder_for_filepath(output_fp)    
+    pyeasylib.create_folder_for_filepath(output_fp) 
+
+    f = open(logfile,'a')
+    f.write("12\n")
+    f.close()   
 
     self = InvmtOutputFormatter(sublead_class   = sublead_class,
                                  portfolio_class= portfolio_class,
@@ -151,6 +160,10 @@ if __name__ == "__main__":
                                  fy             = fy,
                                  aic_name       = aic_name
                                  )
+    
+    # f = open(logfile,'a')
+    # f.write("13\n")
+    # f.close()
 
 
     print (f"Final output saved to {output_fp}.")
