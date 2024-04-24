@@ -180,12 +180,12 @@ class InvmtOutputFormatter:
                               )
 
         for col in col_lst:
-            ws[f"{col}{row}"].fill = PatternFill("solid", fgColor="00C0C0C0")
-            ws[f"{col}{row}"].font = Font(bold = True)
+            ws[f"{col}{row}"].fill = PatternFill("solid", fgColor="1F497D") # 20240424 changed to dark blue
+            ws[f"{col}{row}"].font = Font(bold = True, color = "00FFFFFF")
             ws[f"{col}{row}"].border = border_style
         
     def _standardise_cell_format(self, ws, excelcol, row):
-        font_style = Font(size = "8", name = "Arial")
+        font_style = Font(size = "10", name = "Arial")
         alignment_style =  Alignment(horizontal = 'center')
         ws[f"{excelcol}{row}"].font = font_style
         ws[f"{excelcol}{row}"].alignment = alignment_style
@@ -516,15 +516,26 @@ class InvmtOutputFormatter:
         # add formula columns
         content_df.loc[:, ["PRICEDIFFERENCE", "QUANTITYDIFFERENCE"]] = float(0.00)
 
-        content_df_col_order = ['SECURITYNAMEFUNDADMIN', 'SECURITYNAMEBROKER', 'ISINFUNDADMIN',
-                                'ISINBROKER', 'TRADEDATEFUNDADMIN', 'TRADEDATEBROKER', 'PRICEFUNDADMIN',
-                                'PRICEBROKER', 'PRICEDIFFERENCE', 'QUANTITYFUNDADMIN', 'QUANTITYBROKER',
-                                'QUANTITYDIFFERENCE', 'MARKETVALUEFUNDADMIN', 'MARKETVALUEBROKER', 'VALUEDIFFERENCE',
-                                'TRANSACTIONTYPEFUNDADMIN', 'TRANSACTIONTYPEBROKER',
-                                'TRANSACTIONTYPERSMFUNDADMIN', 'TRANSACTIONTYPERSMBROKER',
-                                'LOCALCURRFUNDADMIN', 'LOCALCURRBROKER', 'EXCEPTIONINDICATOR',
-                                'CONFIDENCELEVELNAME', 'MATCHINGINDICATORNAME', 'INSTITUTIONFUNDADMIN',
-                                'INSTITUTIONBROKER']
+        # 20240424 - commented out because we decided to group the same source together
+        # content_df_col_order = ['SECURITYNAMEFUNDADMIN', 'SECURITYNAMEBROKER', 'ISINFUNDADMIN',
+        #                         'ISINBROKER', 'TRADEDATEFUNDADMIN', 'TRADEDATEBROKER', 'PRICEFUNDADMIN',
+        #                         'PRICEBROKER', 'PRICEDIFFERENCE', 'QUANTITYFUNDADMIN', 'QUANTITYBROKER',
+        #                         'QUANTITYDIFFERENCE', 'MARKETVALUEFUNDADMIN', 'MARKETVALUEBROKER', 'VALUEDIFFERENCE',
+        #                         'TRANSACTIONTYPEFUNDADMIN', 'TRANSACTIONTYPEBROKER',
+        #                         'TRANSACTIONTYPERSMFUNDADMIN', 'TRANSACTIONTYPERSMBROKER',
+        #                         'LOCALCURRFUNDADMIN', 'LOCALCURRBROKER', 'EXCEPTIONINDICATOR',
+        #                         'CONFIDENCELEVELNAME', 'MATCHINGINDICATORNAME', 'INSTITUTIONFUNDADMIN',
+        #                         'INSTITUTIONBROKER']
+        content_df_col_order = ['SECURITYNAMEFUNDADMIN', 'ISINFUNDADMIN', 'TRADEDATEFUNDADMIN',
+                               'PRICEFUNDADMIN', 'QUANTITYFUNDADMIN', 'MARKETVALUEFUNDADMIN', 
+                               'TRANSACTIONTYPEFUNDADMIN', 'TRANSACTIONTYPERSMFUNDADMIN',
+                                'LOCALCURRFUNDADMIN','INSTITUTIONFUNDADMIN',
+                               'SECURITYNAMEBROKER', 'ISINBROKER', 'TRADEDATEBROKER',
+                                'PRICEBROKER', 'QUANTITYBROKER', 'MARKETVALUEBROKER',
+                                'TRANSACTIONTYPEBROKER', 'TRANSACTIONTYPERSMBROKER',
+                                'LOCALCURRBROKER', 'INSTITUTIONBROKER',
+                                'PRICEDIFFERENCE', 'QUANTITYDIFFERENCE', 'VALUEDIFFERENCE', 'EXCEPTIONINDICATOR',
+                                'CONFIDENCELEVELNAME', 'MATCHINGINDICATORNAME']
         content_df = content_df[content_df_col_order]
         lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
         lst_of_date_cols = self._get_column_lst_letters_by_dtype(content_df, ["datetime64[ns]"] )
@@ -534,26 +545,68 @@ class InvmtOutputFormatter:
 
         # detail content writing
         for c_idx, header_value in enumerate(content_df.columns, 1):
-            templ_ws.cell(row=1, column=c_idx, value=header_value)
+            cell = templ_ws.cell(row=1, column=c_idx, value=header_value)
             col = openpyxl.utils.cell.get_column_letter(c_idx)
             self._format_header_cell([col], 1, templ_ws)
+            if col in lst_of_fundadmin_cols:
+                cell.fill = PatternFill("solid", fgColor = "C5D9F1")
+                cell.font = Font(bold = True,
+                                 color = "00000000")
+            elif col in lst_of_difference_cols:
+                cell.fill = PatternFill("solid", fgColor = "00C0C0C0")
+                cell.font = Font(bold = True,
+                                 color = "00000000")
+            elif col in lst_of_broker_cols:
+                pass
+            else:
+                cell.fill = PatternFill("solid", fgColor = "00C0C0C0")
+                cell.font = Font(bold = True,
+                                 color = "00000000")
+            
 
         for r_idx, row in enumerate(content_df.values, 2):
-            
             for c_idx, value in enumerate(row, 1):
                 # templ_ws.cell(row=r_idx, column=c_idx, value=value)
                 cell = templ_ws.cell(row=r_idx, column=c_idx, value=value)
                 excelcol = openpyxl.utils.cell.get_column_letter(c_idx)
-                if excelcol in lst_of_fundadmin_cols:
-                    cell.fill = PatternFill("solid", fgColor = "00CCFFFF") # blue
-                elif excelcol in lst_of_broker_cols:
-                    cell.fill = PatternFill("solid", fgColor = "0099CCFF") # purple
-                elif excelcol in lst_of_difference_cols:
-                    fa_excelcol = self._get_col_letter_from_ref(excelcol, -2)
-                    br_excelcol = self._get_col_letter_from_ref(excelcol, -1)
-                    cell.value = f"= {fa_excelcol}{r_idx+7} - {br_excelcol}{r_idx+7}"
-                else:
-                    pass
+                # # to colour whole column in a specific colour
+                # if excelcol in lst_of_fundadmin_cols:
+                #     cell.fill = PatternFill("solid", fgColor = "D9D9D9")
+                # elif excelcol in lst_of_broker_cols:
+                #     cell.fill = PatternFill("solid", fgColor = "F1F1F1")
+                # elif excelcol in lst_of_difference_cols:
+                #     fa_excelcol = self._get_col_letter_from_ref(excelcol, -2)
+                #     br_excelcol = self._get_col_letter_from_ref(excelcol, -1)
+                #     cell.value = f"= {fa_excelcol}{r_idx+7} - {br_excelcol}{r_idx+7}"
+                #     cell.fill = PatternFill("solid", fgColor = "C5D9F1")
+                # else:
+                #     pass
+                if excelcol in lst_of_difference_cols:
+                    colname = templ_ws[f"{excelcol}1"].value
+                    value_test = re.search("(.*?)DIFFERENCE", colname).group(1)
+                    match value_test:
+
+                        case "PRICE" | "QUANTITY":
+                            fa_colname = f"{value_test}FUNDADMIN"
+                            br_colname = f"{value_test}BROKER"
+                            fa_dist_from_diff_col = content_df_col_order.index(fa_colname) - content_df_col_order.index(colname)
+                            fa_excelcol = self._get_col_letter_from_ref(excelcol, fa_dist_from_diff_col)
+                            br_dist_from_diff_col = content_df_col_order.index(br_colname) - content_df_col_order.index(colname)
+                            br_excelcol = self._get_col_letter_from_ref(excelcol, br_dist_from_diff_col)
+                            cell.value = f"= {fa_excelcol}{r_idx+7} - {br_excelcol}{r_idx+7}"
+
+                        case "VALUE":
+                            fa_colname = f"MARKET{value_test}FUNDADMIN"
+                            br_colname = f"MARKET{value_test}BROKER"
+                            fa_dist_from_diff_col = content_df_col_order.index(fa_colname) - content_df_col_order.index(colname)
+                            fa_excelcol = self._get_col_letter_from_ref(excelcol, fa_dist_from_diff_col)
+                            br_dist_from_diff_col = content_df_col_order.index(br_colname) - content_df_col_order.index(colname)
+                            br_excelcol = self._get_col_letter_from_ref(excelcol, br_dist_from_diff_col)
+                            cell.value = f"= {fa_excelcol}{r_idx+7} - {br_excelcol}{r_idx+7}"
+
+                        case _:
+
+                            pass
                     
             self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx) 
             self._standardise_date_format(templ_ws, lst_of_date_cols, r_idx)
@@ -740,6 +793,19 @@ class InvmtOutputFormatter:
 
             excelcol = colname_to_excelcol['Diff in Value (Base)']
             templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
+            excelcol = colname_to_excelcol['Price per client']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
+            excelcol = colname_to_excelcol['Price at Bid']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
+            excelcol = colname_to_excelcol['Price at Ask']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
+            excelcol = colname_to_excelcol['Max difference']
+            templ_ws[f"{excelcol}{38+6+input_length-25}"].value = f"=SUM({excelcol}{14+4}:{excelcol}{36+6+input_length-25})"
+
 
 
         # self._adjust_col_width(templ_ws)
