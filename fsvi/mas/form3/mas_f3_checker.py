@@ -15,6 +15,8 @@ import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
 
+# TODO: to add validation checks on length of each dataframe (gold, input)
+
 class MASForm3_Validator:
 
     def __init__(self,
@@ -108,21 +110,21 @@ class MASForm3_Validator:
         summary_check = summary[summary != 0]
 
         if len(summary_check) > 0:
-            print("There are differences between the summary of the gold standard and the input file. \n"
+            print("There are differences between the summary of the gold standard and the input file for Form 3. \n"
                   f"Please check the following columns: {summary_check}")
             
         else:
-            print("There are no differences between the summary of the gold standard and the input file.")
+            print("There are no differences between the summary of the gold standard and the input file for Form 3.")
 
         detail = self.merged_f3_detailed
-        detail_check = detail[detail != 0].dropna()
+        detail_check = detail[detail != 0].dropna(how = 'all')
 
         if len(detail_check) > 0:
-            print("There are differences between the detail of the gold standard and the input file. \n"
+            print("There are differences between the detail of the gold standard and the input file for Form 3. \n"
                   f"Please check the following columns: {detail_check}")
             
         else:
-            print("There are no differences between the detail of the gold standard and the input file.")
+            print("There are no differences between the detail of the gold standard and the input file for Form 3.")
     
 
 if __name__ == '__main__':
@@ -131,7 +133,7 @@ if __name__ == '__main__':
     fy = 2022
 
     gold_fp = r"D:\workspace\luna\personal_workspace\gold_standard\mas_forms" + f"\mas_form3_formatted_{client_code}_{fy}.xlsx"
-    input_fp = r"D:\workspace\luna\personal_workspace\gold_standard\mas_forms" + f"\mas_form3_formatted_{client_code}_{fy}.xlsx"
+    input_fp = r"D:\workspace\luna\personal_workspace\tmp" + f"\mas_form3_formatted_{client_code}_{fy}.xlsx"
 
     self = MASForm3_Validator(gold_fp,
                               input_fp)

@@ -48,6 +48,8 @@ class MASForm3_Generator_Part2:
         
         self.update_sig_acct()
 
+        self.create_other_sig_acct_field()
+
         self.load_output_to_lunahub()
 
         self.process_ocr_output()
@@ -76,20 +78,37 @@ class MASForm3_Generator_Part2:
             
             placeholder_df = pd.DataFrame(placeholder_data)
 
+            df_prevfy = placeholder_df
+
+            placeholder_data = {"Account No"    : ["1973558", "1973550"],
+                                "Name"          : ["Realised Ex (Gain)/Loss (C)", "Placeholder Account"],
+                                "L/S"           : ["7410.4", "7410.4"],
+                                "Class"         : ["Revenue - other", "Revenue - other"],
+                                "L/S (interval)": [[7410.4, 7410.4], [7410.4, 7410.4]],
+                                "Value"         : [10568.0, 500000],
+                                "Completed FY?" : [True, True],
+                                "Group"         : ["Realised Ex (Gain)/Loss", "Placeholder"],
+                                "Type"          : ["Revenue", "Revenue"],
+                                "FY"            : [2022, 2022]
+                                }
+            
+            placeholder_df = pd.DataFrame(placeholder_data)
+
             df = placeholder_df
 
-        # Read from lunahub for current year
-        reader_class = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
-                                                                                        fy, lunahub_obj=None)
-        reader_class.main()
-        df = reader_class.df_processed
-        
-        # Read from lunahub for previous year
-        prev_fy = int(fy) - 1
-        reader_class_prevfy = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
-                                                                                        prev_fy, lunahub_obj=None)
-        reader_class_prevfy.main()
-        df_prevfy = reader_class_prevfy.df_processed
+        if True:
+            # Read from lunahub for current year
+            reader_class = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
+                                                                                            fy, lunahub_obj=None)
+            reader_class.main()
+            df = reader_class.df_processed
+            
+            # Read from lunahub for previous year
+            prev_fy = int(fy) - 1
+            reader_class_prevfy = tables.fs_masf3_sig_accts.MASForm3SigAccts_DownloaderFromLunaHub(self.client_number, 
+                                                                                            prev_fy, lunahub_obj=None)
+            reader_class_prevfy.main()
+            df_prevfy = reader_class_prevfy.df_processed
 
         # Concat for both years
         df_concat = pd.concat([df, df_prevfy], axis=0)
@@ -149,7 +168,7 @@ class MASForm3_Generator_Part2:
             #         marker += 1
             #         ctr += 1
             for j in range(sig_acct_grouped.shape[0]):
-                if ctr < min(6, sig_acct_grouped.shape[0]):
+                if ctr < min(6, sig_acct_grouped.shape[0]): # SJ [20240515] - reduced 6 to 5 to accommodate 'others' field
                     self.outputdf.loc[marker+1, 'Header 3'] = sig_acct_grouped.loc[j, 'Group']
                     self.outputdf.loc[marker+1, "Balance"] = sig_acct_grouped.loc[j, self.fy]
                     try:
@@ -172,6 +191,50 @@ class MASForm3_Generator_Part2:
 
         self.update_sig_acct_by_type("rev")
         self.update_sig_acct_by_type("exp")
+
+    def create_other_sig_acct_field(self):
+        
+        self.create_other_sig_acct_field_by_type("rev")
+        self.create_other_sig_acct_field_by_type("exp")
+
+    def create_other_sig_acct_field_by_type(self, account_type):
+        df = self.outputdf.copy()
+
+        if account_type in ['revenue', 'rev']:
+            main_varname = 'rev_other_revenue'
+        elif account_type in ['expense', 'exp']:
+            main_varname = 'exp_other_expense'
+        else:
+            print(f"Unknown account type: '{account_type}'.")
+        other = df[df['var_name'].str.contains(main_varname).fillna(False)]
+        # filter for only the total balance 'exp_other_expense' / 'rev_other_revenue' field
+        total_other = other[other['var_name'] == main_varname]
+        # filter for all the line items '_x' fields
+        sig_accts_other = other[~(other['var_name'] == main_varname)]
+        # calculate the remaining difference by summing the line items and finding
+        #   the difference between that total and the declared total
+        remaining_other = sig_accts_other.copy()
+        sig_accts_other = sig_accts_other.agg({'Balance'            : 'sum',
+                                               'Previous Balance'   : 'sum'
+                                               })
+        total_other = total_other.agg({'Balance'            : 'sum',
+                                       'Previous Balance'   : 'sum'
+                                       })
+        sig_accts_other_df = pd.concat([total_other,
+                                            sig_accts_other], axis = 1
+                                            ).rename(columns = {0: 'total',
+                                                                1: 'sig_accts'})
+        sig_accts_other_df['others'] = sig_accts_other_df['total'] - sig_accts_other_df['sig_accts']
+        # find the earliest field that is not filled up
+        remaining_other = remaining_other[remaining_other['Header 3'].isna()]
+        remaining_other_varname = remaining_other['var_name'].iloc[0]
+        # update the outputdf with the new values
+        df.loc[df['var_name'] == remaining_other_varname, 'Header 3'] = 'Others'
+        df.loc[df['var_name'] == remaining_other_varname, 'Balance'] = sig_accts_other_df.loc['Balance', 'others']
+        df.loc[df['var_name'] == remaining_other_varname, 'Previous Balance'] = sig_accts_other_df.loc['Previous Balance', 'others']
+
+        self.outputdf = df
+
 
     def write_output(self, output_fp = None):
         

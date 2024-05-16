@@ -44,16 +44,16 @@ if __name__ == "__main__":
     parser.add_argument("--client_fy", required=True)
     
     # Parse the information
-    if True:
+    if False:
         args = parser.parse_args()    
         client_number = args.client_number
         fy = int(args.client_fy)
 
     #############################################
     ## FOR DEBUGGING ONLY ##
-    if False:
-        client_number = 9289
-        fy = 2023
+    if True:
+        client_number = 7167
+        fy = 2022
     #############################################
     
     # Default output fp

@@ -15,6 +15,8 @@ import luna.common as common
 import luna.fsvi as fsvi
 import luna.lunahub as lunahub
 
+# TODO: to add validation checks on length of each dataframe (gold, input)
+
 class MASForm1_Validator:
 
     def __init__(self,
@@ -106,21 +108,21 @@ class MASForm1_Validator:
         summary_check = summary[summary != 0]
 
         if len(summary_check) > 0:
-            print("There are differences between the summary of the gold standard and the input file. \n"
+            print("There are differences between the summary of the gold standard and the input file for Form 1. \n"
                   f"Please check the following columns: {summary_check}")
             
         else:
-            print("There are no differences between the summary of the gold standard and the input file.")
+            print("There are no differences between the summary of the gold standard and the input file for Form 1.")
 
         detail = self.merged_f1_detailed
-        detail_check = detail[detail != 0].dropna()
+        detail_check = detail[detail != 0].dropna(how = 'all')
 
         if len(detail_check) > 0:
-            print("There are differences between the detail of the gold standard and the input file. \n"
+            print("There are differences between the detail of the gold standard and the input file for Form 1. \n"
                   f"Please check the following columns: {detail_check}")
             
         else:
-            print("There are no differences between the detail of the gold standard and the input file.")
+            print("There are no differences between the detail of the gold standard and the input file for Form 1.")
     
 
 

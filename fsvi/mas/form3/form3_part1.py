@@ -30,17 +30,19 @@ import luna.lunahub.tables as tables
 
 
 class MASForm3_Generator:
-    SALARY_LS_CODES = [pd.Interval(7300, 7400, closed = 'left')]
-    NET_FOREX_LS_CODES  = [pd.Interval(7410.400, 7410.400, closed = "both")]
-    EXCLUDE_LS_CODES = [pd.Interval(5000,6900.4, closed = "both"), 
-                      pd.Interval(7410.100,7410.400, closed='both')]
-    EXP_EXCLUDE_LS_CODES= [pd.Interval(5000.000, 6900.400, closed = 'both'), 
-                      pd.Interval(7410.100,7410.400, closed='both'), 
-                      pd.Interval(7500.000, 7500.000, closed = "both")]
+    SALARY_LS_CODES                 = [pd.Interval(7300, 7400, closed = 'left')]
+    NET_FOREX_LS_CODES              = [pd.Interval(7410.400, 7410.400, closed = "both")]
+    EXCLUDE_LS_CODES                = [pd.Interval(5000,6900.4, closed = "both"),
+                                       pd.Interval(7410.100,7410.400, closed='both')]
+    EXP_EXCLUDE_LS_CODES            = [pd.Interval(5000.000, 6900.400, closed = 'both'),
+                                       pd.Interval(7410.100,7410.400, closed='both'),
+                                       pd.Interval(7500.000, 7500.000, closed = "both")]
     
-    FOREX_LS_CODES = [pd.Interval(7410.200, 7410.300, closed = "both")]
-    EXCLUDE_TAX = [pd.Interval(7000.000,7500.000, closed = 'left')]
-    SIG_ACC_THRESHOLD = 0.05
+    FOREX_LS_CODES                  = [pd.Interval(7410.200, 7410.300, closed = "both")]
+    EXCLUDE_TAX                     = [pd.Interval(7000.000,7500.000, closed = 'left')]
+    REVENUE_WO_FOREX_OTHER_LS_CODES = [pd.Interval(7000.000, 7100.000, closed = 'left'),
+                                       pd.Interval(7400.000, 7410.000, closed = 'left')] # SJ [20240514] - Added
+    SIG_ACC_THRESHOLD               = 0.05
     
     def __init__(self, 
                  tb_class, mapper_class,
@@ -487,25 +489,57 @@ class MASForm3_Generator:
 
         else: 
             
+            # SJ [20240514] - change of logic ----
+            # boolean, true_match, false_match =\
+            #       self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, MASForm3_Generator.NET_FOREX_LS_CODES)  
+            
+            # # Sum L/S 7410.4
+            # forex = true_match["Value"].sum() 
+
+            # # Sum negative balances 
+            # other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.1', 7410.1])] # SJ [20240514] - added float version
+            # other_rev = other_rev[other_rev["Value"] <0]
+            # other_rev = other_rev["Value"].sum()
+            
+            # # if forex gain, add to other_rev
+            # if forex < 0:
+                
+            #     other_rev = abs(other_rev) + abs(forex)
+
+            # else: 
+            #     other_rev = abs(other_rev)
+            # ----
+
+            # SJ [20240514] - Method 1 - 7410.400 forex net gain/loss ----
             boolean, true_match, false_match =\
                   self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, MASForm3_Generator.NET_FOREX_LS_CODES)  
             
             # Sum L/S 7410.4
-            forex = true_match["Value"].sum() 
+            forex = true_match["Value"].sum()
 
-            # Sum negative balances 
-            other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.1'])]
-            other_rev = other_rev[other_rev["Value"] <0]
-            other_rev = other_rev["Value"].sum()
-
-
-            # if forex gain, add to other_rev
             if forex < 0:
-                
-                other_rev = abs(other_rev) + abs(forex)
+                # other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.1', 7410.1])] # SJ [20240514] - added float version
+                other_rev = filtered_tb.copy()
+                # other_rev = other_rev[other_rev["Value"] <0]
+                other_rev = other_rev["Value"].sum()
+            else:
+                other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.4', 7410.4])] # SJ [20240514] - added float version
+                # other_rev = other_rev[other_rev["Value"] <0]
+                other_rev = other_rev["Value"].sum()
 
-            else: 
+            other_rev = abs(other_rev)
+            # ----
+
+            if False:
+                # SJ [20240515] - Method 2 - 7410.400 forex gain/loss----
+
+                other_rev = filtered_tb[~filtered_tb["L/S"].isin(['7410.1', 7410.1])] # SJ [20240514] - added float version
+                other_rev = other_rev[other_rev["Value"] <0]
+                other_rev = other_rev["Value"].sum()
+
                 other_rev = abs(other_rev)
+                # ----
+
 
         # Map amt to Template  
         self.add_bal_to_template_by_varname(varname, other_rev)  
@@ -550,7 +584,13 @@ class MASForm3_Generator:
         boolean, true_match, false_match = \
             self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, MASForm3_Generator.EXCLUDE_LS_CODES)
         
-        rev = false_match[false_match["Class"].str.match(r'Revenue.+')]
+        # SJ [20240514] - below commented out to update filtering condition(s)
+        # rev = false_match[false_match["Class"].str.match(r'Revenue.+')]
+        boolean, true_match, false_match = \
+            self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, MASForm3_Generator.REVENUE_WO_FOREX_OTHER_LS_CODES)
+        
+        rev = true_match.copy()
+
         rev = rev["Value"].sum()
         
         # Logger 
@@ -1193,8 +1233,8 @@ if __name__ == "__main__":
     #############################################
     ## FOR DEBUGGING ONLY ##
     if True:
-        client_number = 5807
-        fy = 2023
+        client_number = 7167
+        fy = 2022
     #############################################
     
     # Default output fp

@@ -45,14 +45,14 @@ if __name__ == "__main__":
     # parser.add_argument("--aic_name", required=True)
     
     # Parse the information
-    if True:
+    if False:
         args = parser.parse_args()
 
     #############################################
     ## FOR DEBUGGING ONLY ##
     if False:
-        fy              = 2022
-        client_number   = 7167
+        fy              = 2023
+        client_number   = 5807
     #############################################
         
     # Get the luna folderpath 
