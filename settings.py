@@ -27,11 +27,11 @@ elif loginid == "daciachinzq":
     LUNA_FOLDERPATH = None         #SET HERE
     TEMP_FOLDERPATH = None         #SET HERE
     
-elif loginid == "gohjiawey":
-    LUNAHUB_CONFIG_FILEPATH = None #SET HERE
-    PYEASYLIB_FOLDERPATH = None    #SET HERE
-    LUNA_FOLDERPATH = None         #SET HERE
-    TEMP_FOLDERPATH = None         #SET HERE
+elif loginid == "andsoncaimc":
+    LUNAHUB_CONFIG_FILEPATH = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\luna\personal_workspace\db\secrets.py" #SET HERE
+    PYEASYLIB_FOLDERPATH = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\pyeasylib"    #SET HERE
+    LUNA_FOLDERPATH = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\luna"         #SET HERE
+    TEMP_FOLDERPATH = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\luna\personal workspace\tmp"         #SET HERE
 
 elif loginid == "phuasijia":
     LUNAHUB_CONFIG_FILEPATH = r"D:\workspace\luna\personal_workspace\db\secrets.py"

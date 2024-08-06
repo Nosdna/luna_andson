@@ -16,9 +16,9 @@ logger.setLevel(logging.DEBUG)
 # class to upload client data
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
-class FundsCustodianConfirmation_DownloaderFromLunaHub:
+class FundsFundAdminPortfolio_DownloaderFromLunaHub:
     
-    TABLENAME = "fs_funds_custodian_confirmation"
+    TABLENAME = "fs_funds_fundadmin_portfolio"
     
     def __init__(self, 
                  client_number, fy,
@@ -29,8 +29,6 @@ class FundsCustodianConfirmation_DownloaderFromLunaHub:
         
         if lunahub_obj is None:
             self.lunahub_obj = lunahub.LunaHubConnector(**lunahub.LUNAHUB_CONFIG)
-
-        self.main()
 
     def main(self):
 
@@ -116,9 +114,8 @@ if __name__ == "__main__":
         fy = 2023
         uploaddatetime = None
         lunahub_obj = None
-        self = FundsCustodianConfirmation_DownloaderFromLunaHub(client_number,
+        self = FundsFundAdminPortfolio_DownloaderFromLunaHub(client_number,
                                                                 fy,
                                                                 lunahub_obj)
         
-        df = self.df_processed
-        print(df)
+        df = self.main()

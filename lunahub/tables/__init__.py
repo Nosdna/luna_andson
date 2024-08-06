@@ -13,3 +13,5 @@ from luna.lunahub.tables import fs_funds_invmt_output_sublead
 from luna.lunahub.tables import fs_funds_invmt_txn_recon_details
 from luna.lunahub.tables import fs_funds_broker_statement
 from luna.lunahub.tables import fs_funds_custodian_confirmation
+from luna.lunahub.tables import fs_funds_fundadmin_txn
+from luna.lunahub.tables import fs_funds_fundadmin_portfolio

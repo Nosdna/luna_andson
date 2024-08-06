@@ -16,9 +16,9 @@ logger.setLevel(logging.DEBUG)
 # class to upload client data
 LunaHubBaseUploader = lunahub.LunaHubBaseUploader
 
-class FundsCustodianConfirmation_DownloaderFromLunaHub:
+class FundsFundAdminTxn_DownloaderFromLunaHub:
     
-    TABLENAME = "fs_funds_custodian_confirmation"
+    TABLENAME = "fs_funds_fundadmin_txn"
     
     def __init__(self, 
                  client_number, fy,
@@ -43,7 +43,18 @@ class FundsCustodianConfirmation_DownloaderFromLunaHub:
             
             self.df_processed = df.copy()
         
+        ####################################################################
+        # TO make this consistent across all tb classes
+        # Create a txn query class
+        txn_query_class = TxnQueryClass(self.df_processed)
+        
+        # Unpack the methods to self
+        self.get_data_by_fy = txn_query_class.get_data_by_fy
+        self.filter_txn_by_txntype = txn_query_class.filter_txn_by_txntype
+        ##################################################################
+
         return self.df_processed
+    
     
     def read_from_lunahub(self):
 
@@ -105,7 +116,54 @@ class FundsCustodianConfirmation_DownloaderFromLunaHub:
         
         return df_client_fy_latest
 
+class TxnQueryClass:
+    
+    def __init__(self, df_processed_long):
         
+        self.df_processed_long = df_processed_long
+
+    def get_data_by_fy(self, fy):
+        
+        if not hasattr(self, 'gb_fy'):
+            
+            self.gb_fy = self.df_processed_long.groupby("FY")
+        
+        # Get
+        fy = int(fy)
+        if fy not in self.gb_fy.groups:
+            valid_fys = list(self.gb_fy.groups.keys())
+            raise KeyError (f"FY={fy} not found. Valid FYs: {list(valid_fys)}")
+            
+        return self.gb_fy.get_group(fy)
+        
+    
+    def filter_txn_by_txntype(self, fy, txn_type):
+        '''
+        interval_list = a list of pd.Interval
+                        a list of strings e.g. ['3', '4-5.5']
+        '''
+        
+        df = self.get_data_by_fy(fy)
+        
+        # Loop through all the txn types, append to temp data
+        temp = []
+
+        # Check type match
+        is_type = df['TRANSACTIONTYPERSM'].apply(lambda x: x == txn_type)
+        is_type.name = txn_type
+        temp.append(is_type)
+            
+        # Concat
+        temp_df = pd.concat(temp, axis=1, names = txn_type)
+        
+        # final is type
+        is_type = temp_df.any(axis=1)
+        print(is_type)
+        # get hits
+        true_match = df[is_type]
+        false_match = df[~is_type]
+        
+        return is_type, true_match, false_match        
 
 if __name__ == "__main__":
         
@@ -116,9 +174,10 @@ if __name__ == "__main__":
         fy = 2023
         uploaddatetime = None
         lunahub_obj = None
-        self = FundsCustodianConfirmation_DownloaderFromLunaHub(client_number,
+        self = FundsFundAdminTxn_DownloaderFromLunaHub(client_number,
                                                                 fy,
                                                                 lunahub_obj)
         
-        df = self.df_processed
-        print(df)
+        is_type, true_match, false_match = self.filter_txn_by_txntype(2023,'sell')
+        print(true_match)
+        

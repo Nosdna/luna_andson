@@ -26,8 +26,16 @@ class InvmtOutputFormatter:
     LSCODES_BOND_INTREC         = [pd.Interval(5200.0, 5300.0, closed='left')]
     LSCODES_UNREALISED_GAINLOSS = [pd.Interval(7000.2, 7000.2, closed='both')]
     LSCODES_REALISED_GAINLOSS   = [pd.Interval(7000.1, 7000.1, closed='both')]
+    #Adding in parameter for Txn related
+    TRANSACTIONTYPERSM_PURC = "buy"
+    TRANSACTIONTYPERSM_SALES = "sell"
 
     DATABASE_MISC_COLS  = ['WORKFLOWDATE', 'CLIENTNUMBER','FY',
+                           'UPLOADER', 'UPLOADDATETIME',
+                           'COMMENT1', 'COMMENT2', 'COMMENT3'
+                           ]
+    
+    DATABASE_SUBLEAD_MISC_COLS = ['REPORTNAME','INSTITUTION','FILEPATH','FILENAME','SHEETNAME','WORKFLOWDATE', 'CLIENTNUMBER','FY',
                            'UPLOADER', 'UPLOADDATETIME',
                            'COMMENT1', 'COMMENT2', 'COMMENT3'
                            ]
@@ -35,7 +43,8 @@ class InvmtOutputFormatter:
     CONFIDENCE_THRESHOLD = 0.45
 
     def __init__(self, sublead_class, portfolio_class, recon_class,
-                 broker_class, custodian_class, tb_class,
+                 broker_class, custodian_class, tb_class, 
+                 processedtransaction_class, processedportfolio_class,
                  output_fp, mapper_fp, user_inputs,
                  client_class, fy, aic_name = ""
                  ):
@@ -50,6 +59,8 @@ class InvmtOutputFormatter:
         self.mapper_fp      = mapper_fp
         self.user_inputs    = user_inputs
         self.client_class   = client_class
+        self.processedtransaction_class = processedtransaction_class
+        self.processedportfolio_class = processedportfolio_class
         self.fy             = int(fy)
         self.aic_name       = aic_name
 
@@ -70,6 +81,7 @@ class InvmtOutputFormatter:
         self.write_portfolio_output()
         self.write_processed_broker()
         self.write_processed_custodian_confirmation()
+        #self.write_readme(readme_table)
 
 
     def get_data(self):
@@ -79,6 +91,8 @@ class InvmtOutputFormatter:
         self.portfolio_mapper_df = pd.read_excel(self.mapper_fp)
         self.broker_df = self.broker_class.main()
         self.custodian_confirmation_df = self.custodian_class.main()
+        self.transaction_df = self.processedtransaction_class.main()
+        self.portfolio_df = self.processedportfolio_class.main()
             
     def build_varname_to_values(self, df):
         
@@ -291,6 +305,19 @@ class InvmtOutputFormatter:
                                                            ignore_index = True
                                                            )
 
+    # Function to insert row in between -> But does not work with hyperlink
+    # def _insert_disclaimer(self, ws,column_to_insert, row_to_insert, message):
+    #     max_row = ws.max_row
+    #     max_column = get_column_letter(ws.max_column)
+    #     ws.move_range(f"A{row_to_insert}:{max_column}{max_row}", rows=1, cols=0)
+    #     ws[f"{column_to_insert}{row_to_insert}"].value = message
+
+
+    def make_sheet_active(self, wb: openpyxl.workbook.workbook.Workbook, sheet_name: str):
+        wb.active = wb[sheet_name]
+        for ws in wb:
+            ws.views.sheetView[0].tabSelected = ws.title == sheet_name
+
     def process_nav(self):
 
         is_overlap, true_match, false_match = self.tb_class.filter_tb_by_fy_and_ls_codes(self.fy, InvmtOutputFormatter.LSCODES_NAV)
@@ -327,36 +354,98 @@ class InvmtOutputFormatter:
 
         return filtered_tb.set_index('Account No').copy()
     
-    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, return_source_cell, cell, reference_sheetname, title, filtered_tb):
+
+    #Creating filter Transaction for sublead - A
+    def filter_txn_for_sublead_field(self, field):
+
+        field_dict = {"purc"    : InvmtOutputFormatter.TRANSACTIONTYPERSM_PURC,
+                      "unreal_txn_cost"    : InvmtOutputFormatter.TRANSACTIONTYPERSM_PURC,
+                      "sales" : InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES,
+                      "report_cost" : InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES,
+                      "report_sales" : InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES,
+                      "real_txn_cost" : InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES,
+                      }
+
+        transaction_types = field_dict[field]
+
+        is_type, true_match, false_match = self.processedtransaction_class.filter_txn_by_txntype(self.fy,transaction_types)
+
+        #filtered_txn = true_match.copy()
+        filtered_txn = pd.concat([true_match,false_match])
+
+        #filtered_df = df[df.apply(lambda row: row['type'] == 'buy', axis=1)]
+        if field in ["purc", "unreal_txn_cost"]:
+            #filtered_txn = filtered_txn[filtered_txn['TRANSACTIONTYPERSM'] == InvmtOutputFormatter.TRANSACTIONTYPERSM_PURC]
+            filtered_txn['Include / Exclude'] = filtered_txn['TRANSACTIONTYPERSM'].apply(lambda x: 'Included' if x==InvmtOutputFormatter.TRANSACTIONTYPERSM_PURC else 'Excluded')
+        elif field in ["sales", "report_cost","report_sales","real_txn_cost"]:
+            #filtered_txn = filtered_txn[filtered_txn['TRANSACTIONTYPERSM'] == InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES]
+            filtered_txn['Include / Exclude'] = filtered_txn['TRANSACTIONTYPERSM'].apply(lambda x: 'Included' if x==InvmtOutputFormatter.TRANSACTIONTYPERSM_SALES else 'Excluded')
+        else:
+            pass
+
+        return filtered_txn.set_index('SECURITYNAME').copy()
+    
+    #Created function to remove index column from df_processed and future use
+    def filter_position_for_sublead_field(self, field):
+        
+        filtered_port = processedportfolio_class.df_processed.copy()
+
+        if field in ["cost_at_end", "fv_valuation_report","unreal_port_cost"]:
+            filtered_port['Include / Exclude'] = "Included"
+        else:
+            pass        
+
+        return filtered_port.set_index('SECURITYNAME').copy()
+
+
+    def create_hyperlink_in_sublead_to_tb(self, wb, source_sheetname, return_source_cell, cell, reference_sheetname, title, filtered_tb, filter_logic):
 
         field_to_source_locations = {"<<<link>>>": cell}
 
         header_rows = ["Title", "Client name", "Data as of", "FY", 
                        "Prepared by", "Reviewed by"]
 
+        #Dropping unused columns for txn and portfolio
+        print(self.DATABASE_SUBLEAD_MISC_COLS)
+        if all(col in filtered_tb.columns for col in self.DATABASE_SUBLEAD_MISC_COLS):
+            cols_to_drop = self.DATABASE_SUBLEAD_MISC_COLS.copy()
+            filtered_tb = filtered_tb.drop(cols_to_drop, errors = 'ignore', axis = 1)
+        else:
+            pass
+
         field_to_data = {"<<<link>>>" : filtered_tb}
 
-        hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, "A8", field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
+        hyperlink_class = common.hyperlinks.DataHyperlink(source_sheetname, "A9", field_to_source_locations, reference_sheetname, header_rows, field_to_data, wb)
         hyperlink_class.write_reference_data()
         hyperlink_class.write_source_data()
 
         ws = wb[reference_sheetname]
 
-        self._create_header(wb[reference_sheetname], title, 6, 0)
+        self._create_header(wb[reference_sheetname], title, 6, 1)
 
         for c_idx, header_value in enumerate(filtered_tb.reset_index().columns, 1):
             col = openpyxl.utils.cell.get_column_letter(c_idx)
-            self._format_header_cell([col], 9, ws)
+            self._format_header_cell([col], 10, ws)
 
-        for r_idx, row in enumerate(filtered_tb.reset_index().values, 10):
+        for r_idx, row in enumerate(filtered_tb.reset_index().values, 11):
             self._standardise_number_format(ws, ['F'], r_idx) #TODO: hardcoded excelcols and rows  
             self._standardise_date_format(ws, ['E'], r_idx) #TODO: hardcoded excelcols and rows  
 
-        field_to_source_locations = {"<<<Return to Sub-lead>>>": "A8"}
+        field_to_source_locations = {"<<<Return to Sub-lead>>>": "A9"}
+
+        ws["B9"].value = "Filter logic: " + filter_logic
+        ws["A8"].value = "Data has been extracted and standardised to all formats, and may not be same as followed in source document. For detailed explaination, view README"
+        ws.merge_cells("A8:F8") #Readme message
+        ws.merge_cells("B9:F9") #Filter logic
 
         hyperlink_class = common.hyperlinks.DataHyperlink(reference_sheetname, return_source_cell, field_to_source_locations, source_sheetname, [], {}, wb)
         hyperlink_class.write_reference_data()
         hyperlink_class.write_source_data()
+
+        #self._insert_disclaimer(ws,"A", "8", "Data has been extracted and standardised to all formats, and may not be same as followed in source document. For detailed explaination, view README")
+
+    def process_readme(self, ws_readme):
+        ws_readme.merge_cells("A2:D3")
 
     def write_sublead_output(self):
 
@@ -431,23 +520,102 @@ class InvmtOutputFormatter:
         filtered_tb_unrealised_gainloss = self.filter_tb_for_sublead_field("unrealised_gainloss")
         filtered_tb_realised_gainloss = self.filter_tb_for_sublead_field("realised_gainloss")
 
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E39", "E39",
+        #pointing to filter txn for sublead
+        filtered_txn_purc = self.filter_txn_for_sublead_field("purc")
+        filtered_txn_unreal_txn_cost = self.filter_txn_for_sublead_field("unreal_txn_cost")
+        filtered_txn_sales = self.filter_txn_for_sublead_field("sales")
+        filtered_txn_report_cost = self.filter_txn_for_sublead_field("report_cost")
+        filtered_txn_report_sales = self.filter_txn_for_sublead_field("report_sales")
+        filtered_txn_real_txn_cost = self.filter_txn_for_sublead_field("real_txn_cost")
+
+        #pointing to filter portfolio for sublead
+        filtered_portfolio_cost_at_end = self.filter_position_for_sublead_field("cost_at_end")
+        filtered_portfolio_fv_valuation_report = self.filter_position_for_sublead_field("fv_valuation_report")
+        filtered_portfolio_unreal_port_cost = self.filter_position_for_sublead_field("unreal_port_cost")
+        
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E43", "E43",
                                                "Interest - Bonds TB",
                                                "Trial Balance for Interest - Bonds",
-                                               filtered_tb_bond_int)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E41", "E41",
+                                               filtered_tb_bond_int,
+                                               "Filter for LSCODE = 7400.200 and for ACCOUNTNAME containing 'Interest'.")
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E45", "E45",
                                                "Interest Receivables - Bonds TB", 
                                                "Trial Balance for Interest Receivables - Bonds",
-                                               filtered_tb_bond_intrec)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E33", "E33",
+                                               filtered_tb_bond_intrec,
+                                               "Filter for LSCODE >= 5200.000 and <5201.000 and for ACCOUNTNAME containing 'Interest'.")
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E37", "E37",
                                                "Unrealised Gain or Loss TB", 
                                                "Trial Balance for Unrealised Gain/Loss",
-                                               filtered_tb_unrealised_gainloss)
-        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E45", "E45",
+                                               filtered_tb_unrealised_gainloss,
+                                               "Filter for LSCODE = 7000.200 and for ACCOUNTNAME not containing 'FX' or 'Foreign exchange'.")
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E49", "E49",
                                                "Realised Gain or Loss TB", 
                                                "Trial Balance for Realised Gain/Loss",
-                                               filtered_tb_realised_gainloss)
+                                               filtered_tb_realised_gainloss,
+                                               "Filter for LSCODE = 7000.100 and for ACCOUNTNAME not containing 'FX' or 'Foreign exchange'.")
         
+        #Creating new hyperlinks per Kelly feedback - A
+
+        #Transaction - Purchases
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E16", "E16",
+                                               "Purchases Transaction", 
+                                               "Transaction Report for Purchases",
+                                               filtered_txn_purc,
+                                               "Filter TRANSACTIONTYPERSM = buy and sum of (TRANSACTIONAMOUNTLCY-REALISEDPRICELCY) * TRADEDATERATE")
+        #Transaction - Cost of Sales
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E17", "E17",
+                                               "Sales Transaction", 
+                                               "Transaction Report for Sales",
+                                               filtered_txn_sales,
+                                               "Filter TRANSACTIONTYPERSM = sell and sum of (TRANSACTIONAMOUNTLCY-REALISEDPRICELCY) * TRADEDATERATE")
+        
+        #Create hyperlink for E20, same as sales - harde
+        hyperlink = "#'Sales Transaction'!A9"        
+        ws = templ_wb[sheet_name]
+        ws["E24"].hyperlink = hyperlink
+        ws["E24"].value = "<<<link>>>"
+        ws["E24"].style = 'Hyperlink'
+
+        #Portfolio - Cost at end of year/period per client
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E19", "E19",
+                                               "Cost at End of Year Portfolio", 
+                                               "Investment Portfolio for Cost",
+                                               filtered_portfolio_cost_at_end,
+                                               "Sum of (MARKETVALUEFCY / MARKETVALUELCY) * COSTLCY")
+        #Transaction - Sale Proceeds
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "G24", "G24",
+                                               "Sales Proceeds Transaction", 
+                                               "Transaction Report for Sales Proceeds",
+                                               filtered_txn_report_sales,
+                                               "Filter TRANSACTIONTYPERSM = buy and sum of TRANSACTIONAMOUNTFCY")
+        #Portfolio - FV of investment
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E28", "E28",
+                                               "FV of Investment Portfolio", 
+                                               "Investment Portfolio for FV of Investment",
+                                               filtered_portfolio_fv_valuation_report,
+                                               "Sum of MARKETVALUEFCY")
+        #Portfolio - Cost of investment
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E32", "E32",
+                                               "Cost of Investment Portfolio", 
+                                               "Investment Portfolio for Cost of Investment",
+                                               filtered_portfolio_unreal_port_cost,
+                                               "Sum of (MARKETVALUEFCY / MARKETVALUELCY) * COSTLCY")
+        
+        #Transaction - Unreal Transaction Cost
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E36", "E36",
+                                               "Unrealised Transaction Cost", 
+                                               "Transaction Report for Unrealised Transaction Cost",
+                                               filtered_txn_unreal_txn_cost,
+                                               "Filter TRANSACTIONTYPERSM = buy and sum of BROKERCOMMISSIONFCY + Sum of OTHERFEESFCY ")
+
+        #Transaction - Real Transaction Cost
+        self.create_hyperlink_in_sublead_to_tb(templ_wb, sheet_name, "E48", "E48",
+                                               "Realised Transaction Cost", 
+                                               "Transaction Report for Realised Transaction Cost",
+                                               filtered_txn_real_txn_cost,
+                                               "Filter TRANSACTIONTYPERSM = sell and sum of COMMISSIONFCY + Sum of OTHERCHARGESFCY ")
+        
+
         # TODO: check if this is what they want
         if False:
             templ_ws["D39"].value = self._create_tb_reference_formula_for_sublead("Interest - Bonds TB")
@@ -455,10 +623,26 @@ class InvmtOutputFormatter:
             templ_ws["D33"].value = self._create_tb_reference_formula_for_sublead("Unrealised Gain or Loss TB")
             templ_ws["D45"].value = self._create_tb_reference_formula_for_sublead("Realised Gain or Loss TB")
 
-        templ_ws["E39"].fill = copy(templ_ws["D39"].fill)
-        templ_ws["E41"].fill = copy(templ_ws["D41"].fill)
-        templ_ws["E33"].fill = copy(templ_ws["D33"].fill)
+        templ_ws["E43"].fill = copy(templ_ws["D43"].fill)
         templ_ws["E45"].fill = copy(templ_ws["D45"].fill)
+        templ_ws["E37"].fill = copy(templ_ws["D37"].fill)
+        templ_ws["E49"].fill = copy(templ_ws["D49"].fill)
+        templ_ws["E16"].fill = copy(templ_ws["D16"].fill)
+        templ_ws["E17"].fill = copy(templ_ws["D17"].fill)
+        templ_ws["E19"].fill = copy(templ_ws["D19"].fill)
+        templ_ws["G24"].fill = copy(templ_ws["G24"].fill)
+        templ_ws["E24"].fill = copy(templ_ws["D19"].fill)
+        templ_ws["E28"].fill = copy(templ_ws["E29"].fill)
+        templ_ws["E32"].fill = copy(templ_ws["E29"].fill)
+        templ_ws["E36"].fill = copy(templ_ws["E29"].fill)
+        templ_ws["E48"].fill = copy(templ_ws["E29"].fill)
+        
+        # merging auditor guidance and conclusion
+        templ_ws.merge_cells("B8:F10") # Auditor Guidance
+        templ_ws.merge_cells("B71:F73") # Conclusion
+
+        # modifying readme merge
+        self.process_readme(templ_wb["Readme"])
 
         templ_wb.save(self.output_fp)
         templ_wb.close()
@@ -631,7 +815,8 @@ class InvmtOutputFormatter:
 
         self._create_header(templ_ws, sheet_name, 2, 0)
 
-        row = 14
+        row = 18
+        templ_ws.merge_cells("A14:F16") # Auditor Guidance
         templ_ws.merge_cells(f"A{row}:H{row}") # per client
         templ_ws.merge_cells(f"I{row}:M{row}") # per custodian
         templ_ws.merge_cells(f"N{row}:S{row}") # per client
@@ -642,6 +827,9 @@ class InvmtOutputFormatter:
         content_df = self.processed_portfolio_input_df.copy()
         
         input_length = len(content_df)
+
+        templ_ws.merge_cells(f"A{row+input_length+18}:F{row+input_length+20}") # Conclusion
+
         if input_length > 25:
             templ_ws.insert_rows(idx = 40, amount = input_length - 25 + 2)
 
@@ -653,7 +841,7 @@ class InvmtOutputFormatter:
         lst_of_date_cols = self._get_column_lst_letters_by_dtype(content_df, ["datetime64[ns]"])
 
         for col in transposed_df.index:
-            row = 13 + 5
+            row = 17 + 5
             for i in range(len(transposed_df.columns)):
                 try:
                     val = transposed_df.at[col, i]
@@ -677,7 +865,7 @@ class InvmtOutputFormatter:
         #     self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx)
         #     self._standardise_date_format(templ_ws, lst_of_date_cols, r_idx)
 
-        row = 13 + 5
+        row = 17 + 5
 
         # # this will be KIV as a later enhancement
         # portfolio_formulas = self.template_class.portfolio_df_processed.iloc[0,:]
@@ -887,18 +1075,57 @@ class InvmtOutputFormatter:
         templ_ws.column_dimensions["A"].hidden = True
         templ_ws = templ_wb["<5100-xx>Investment Portfolio"]
         templ_ws.column_dimensions["M"].hidden = True
+
+        # Making sublead sheet default on open
+        self.make_sheet_active(templ_wb,"<5100-xx>Investment sub-lead")
+        
         templ_wb.save(self.output_fp)
         templ_wb.close()
 
 
+"""     def write_readme(self, readme_table):
+
+        sheet_name = "README"
+        #creating temp wbws
+        templ_wb = openpyxl.load_workbook(self.output_fp)
+        templ_ws = templ_wb[sheet_name]
+
+        #creating content less db specific content 
+        #TODO: custodian_confirmation_df TO CHANGE)
+        cols_to_drop = InvmtOutputFormatter.DATABASE_MISC_COLS.copy()
+        content_df = readme_table.copy() 
+
+        lst_of_number_cols = self._get_column_lst_letters_by_dtype(content_df, ["float64"])
+
+        for c_idx, header_value in enumerate(content_df.columns, 1):
+            templ_ws.cell(row=1, column=c_idx, value=header_value)
+            col = openpyxl.utils.cell.get_column_letter(c_idx)
+            self._format_header_cell([col], 1, templ_ws)
+
+        for r_idx, row in enumerate(content_df.values, 2):
+            for c_idx, value in enumerate(row, 1):
+                templ_ws.cell(row=r_idx, column=c_idx, value=value)
+            self._standardise_number_format(templ_ws, lst_of_number_cols, r_idx)
+                
+        self._create_header(templ_ws, sheet_name, 0, 1)
+
+        # self._adjust_col_width(templ_ws)
+
+        templ_wb.save(self.output_fp)
+        templ_wb.close()
+
+        col_adjust = excellib.width_methods.ColumnsWidthAdjuster(self.output_fp)
+        col_adjust.main(sheetnames = True)
+   
+ """
 if __name__ == "__main__":
 
-    client_no = 10000
+    client_no = 50060
     fy        = 2023
 
     # recon_input_fp = r"D:\Documents\Project\Internal Projects\20240122 FS Funds\Recon output.xlsx"
-    output_fp = r"D:\workspace\luna\personal_workspace\db\funds_test.xlsx"
-    portfolio_mapper_fp = r"D:\workspace\luna\parameters\invmt_portfolio_mapper.xlsx"
+    output_fp = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\luna\personal_workspace\db\funds_test.xlsx"
+    portfolio_mapper_fp = r"D:\andsoncaimc\Desktop\Task6-App2Exceloutput\luna\parameters\invmt_portfolio_mapper.xlsx"
 
     client_class    = tables.client.ClientInfoLoader_From_LunaHub(client_no)
     sublead_class   = tables.fs_funds_invmt_output_sublead.FundsSublead_DownloaderFromLunaHub(client_no, fy)
@@ -906,6 +1133,8 @@ if __name__ == "__main__":
     recon_class     = tables.fs_funds_invmt_txn_recon_details.FundsInvmtTxnReconDetail_DownloaderFromLunaHub(client_no, fy)
     broker_class    = tables.fs_funds_broker_statement.FundsBrokerStatement_DownloaderFromLunaHub(client_no, fy)
     custodian_class = tables.fs_funds_custodian_confirmation.FundsCustodianConfirmation_DownloaderFromLunaHub(client_no, fy)
+    processedtransaction_class = tables.fs_funds_fundadmin_txn.FundsFundAdminTxn_DownloaderFromLunaHub(client_no, fy)
+    processedportfolio_class = tables.fs_funds_fundadmin_portfolio.FundsFundAdminPortfolio_DownloaderFromLunaHub(client_no, fy)
     tb_class        = common.TBLoader_From_LunaHub(client_no, fy)
 
     aic_name = "DS Team"
@@ -921,12 +1150,15 @@ if __name__ == "__main__":
             raise Exception (f"Data not found for specified client {client_no} or FY {fy}.")
         else:
             continue
-    
+
+
     self = InvmtOutputFormatter(sublead_class       = sublead_class,
                                  portfolio_class    = portfolio_class,
                                  recon_class        = recon_class,
                                  broker_class       = broker_class,
                                  custodian_class    = custodian_class,
+                                 processedtransaction_class = processedtransaction_class,
+                                 processedportfolio_class = processedportfolio_class,
                                  tb_class           = tb_class,
                                  output_fp          = output_fp,
                                  mapper_fp          = portfolio_mapper_fp,
@@ -937,7 +1169,7 @@ if __name__ == "__main__":
                                  )
 
 
-    if True:
+    if False:
 
         import webbrowser
         webbrowser.open(output_fp)
